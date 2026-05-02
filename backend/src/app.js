@@ -17,7 +17,7 @@ app.use(express.json());
 // ── 模拟数据库 ────────────────────────────────────────────
 const db = {
   users: [
-    { id: 1, username: 'admin', password: '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', role: 'admin' }
+    { id: 1, username: 'admin', password: '$2b$10$JtHZm.yLRN6Q8AoELRx9CuAWlTH10auNZm1j6IrYX9zp7OP6R2kL2', role: 'admin' }
   ],
   schools: [
     { id: 1, name: '阳光小学', address: '北京市朝阳区阳光路1号', contact: '010-12345678' },
