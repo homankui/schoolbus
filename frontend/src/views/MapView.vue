@@ -21,7 +21,7 @@ const markers = {};
 onMounted(() => {
   busStore.connect();
   const script = document.createElement('script');
-  script.src = `https://webapi.amap.com/maps?v=2.0&key=${import.meta.env.VITE_AMAP_KEY}`;
+  script.src = 'https://webapi.amap.com/maps?v=2.0&key=d7dd13a7159db4adbc4028e0309e71bf';
   script.onload = initMap;
   document.head.appendChild(script);
 });

@@ -86,7 +86,7 @@ function ensureAmapLoaded() {
   if (getAMap()) return Promise.resolve();
   return new Promise(resolve => {
     const script = document.createElement('script');
-    script.src = `https://webapi.amap.com/maps?v=2.0&key=${import.meta.env.VITE_AMAP_KEY}&plugin=AMap.PlaceSearch`;
+    script.src = 'https://webapi.amap.com/maps?v=2.0&key=d7dd13a7159db4adbc4028e0309e71bf&plugin=AMap.PlaceSearch';
     script.onload = resolve;
     document.head.appendChild(script);
   });
