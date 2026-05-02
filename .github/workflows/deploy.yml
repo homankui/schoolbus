@@ -1,0 +1,47 @@
+name: Deploy to ECS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          VITE_AMAP_KEY=${{ secrets.AMAP_KEY }} npm run build
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ secrets.DEPLOY_PATH }}
+            git pull origin main
+
+            # 后端
+            cd ${{ secrets.DEPLOY_PATH }}/backend
+            npm install --production
+            pm2 restart smart-bus-backend || pm2 start src/app.js --name smart-bus-backend
+            pm2 save
+
+            # 前端（直接用 CI 构建产物）
+            echo "前端已在 CI 构建，通过 rsync 同步"
+
+      - name: Sync frontend dist
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: frontend/dist/
+          target: ${{ secrets.DEPLOY_PATH }}/frontend/dist/
+          strip_components: 2
