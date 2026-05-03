@@ -271,6 +271,17 @@ function teacherRouter(key, relType) {
 app.use('/api/escort-teachers', teacherRouter('escortTeachers', 'escortTeachers'));
 app.use('/api/class-teachers',  teacherRouter('classTeachers',  'classTeachers'));
 
+app.get('/api/debug/escort-teachers', auth, (req, res) => {
+  res.json(db.escortTeachers.map(t => ({
+    id: t.id,
+    name: t.name,
+    phone: t.phone,
+    username: t.username,
+    hasPassword: !!t.password,
+    session_ids: t.session_ids || []
+  })));
+});
+
 // ── 学生 face_id 更新 ─────────────────────────────────────
 app.put('/api/students/:id/face', auth, (req, res) => {
   const s = db.students.find(s => s.id === +req.params.id);
