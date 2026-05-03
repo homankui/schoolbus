@@ -79,7 +79,7 @@ const db = {
       id: 1,
       name: '测试老师',
       phone: '123',
-      username: 'escort001',
+      username: '123',
       password: '$2b$10$JtHZm.yLRN6Q8AoELRx9CuAWlTH10auNZm1j6IrYX9zp7OP6R2kL2',
       session_ids: [4],
       school_id: 1
