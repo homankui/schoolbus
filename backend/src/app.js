@@ -153,6 +153,16 @@ app.post('/api/auth/login', async (req, res) => {
   res.json({ token, role: user.role, username: user.username });
 });
 
+// 跟车老师登录（用 phone 作为用户名）
+app.post('/api/auth/escort-login', async (req, res) => {
+  const { username, password } = req.body;
+  const teacher = db.escortTeachers.find(t => t.phone === username || t.name === username);
+  if (!teacher || !await bcrypt.compare(password, teacher.password))
+    return res.status(401).json({ message: '账号或密码错误' });
+  const token = jwt.sign({ id: teacher.id, role: 'escort', session_ids: teacher.session_ids, school_id: teacher.school_id }, SECRET, { expiresIn: '8h' });
+  res.json({ token, role: 'escort', username: teacher.name, session_ids: teacher.session_ids });
+});
+
 // ── 学校 ──────────────────────────────────────────────────
 app.get('/api/schools', auth, (req, res) => res.json(db.schools));
 app.post('/api/schools', auth, (req, res) => {
@@ -237,7 +247,8 @@ function teacherRouter(key, relType) {
   router.post('/', auth, async (req, res) => {
     const body = { ...req.body };
     if (body.password) body.password = await bcrypt.hash(body.password, 10);
-    const item = { id: nextId[key]++, session_ids: [], ...body };
+    const item = { id: nextId[key]++, ...body };
+    if (key === 'escortTeachers' && !Array.isArray(item.session_ids)) item.session_ids = [];
     db[key].push(item);
     res.json(withRel(item, relType));
   });
@@ -599,6 +610,42 @@ app.get('/api/dashboard', auth, (req, res) => {
     todayRides: records.length,
     unreadNotifs: notifs.length
   });
+});
+
+// ── App 端接口 ────────────────────────────────────────────
+
+// 获取指定班次的学生列表（App 登录后拉取）
+app.get('/api/app/students', auth, (req, res) => {
+  const { session_id } = req.query;
+  if (!session_id) return res.status(400).json({ message: 'session_id required' });
+  const list = db.students.filter(s => (s.session_ids || []).includes(+session_id));
+  res.json(list.map(s => ({ id: s.id, name: s.name, stop: s.stop_name || '', face_id: s.face_id })));
+});
+
+// App 上报考勤（人脸识别成功后调用）
+app.post('/api/app/attendance', auth, (req, res) => {
+  const { student_id, bus_id, stop_name } = req.body;
+  const student = db.students.find(s => s.id === +student_id);
+  if (!student) return res.status(404).json({ message: 'Student not found' });
+
+  const now = new Date();
+  const record = { id: nextId.rideRecords++, student_id: +student_id, bus_id: +bus_id, board_time: now, alight_time: null, board_stop: stop_name || '', alight_stop: '' };
+  db.rideRecords.push(record);
+
+  const notif = { id: nextId.notifications++, student_id: +student_id, type: 'board', content: `${student.name}已于${now.toTimeString().slice(0,5)}在${stop_name || ''}上车`, sent_at: now, is_read: 0 };
+  db.notifications.push(notif);
+
+  io.emit('attendance:update', { student_id: +student_id, student_name: student.name, stop_name, time: now });
+  res.json({ success: true });
+});
+
+// App 更新人脸 ID（采集成功后同步）
+app.post('/api/app/face', auth, (req, res) => {
+  const { student_name, face_id } = req.body;
+  const student = db.students.find(s => s.name === student_name);
+  if (!student) return res.status(404).json({ message: 'Student not found' });
+  student.face_id = face_id;
+  res.json({ success: true });
 });
 
 // ── Socket.io 实时位置 ────────────────────────────────────
