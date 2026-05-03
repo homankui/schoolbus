@@ -74,7 +74,17 @@ const db = {
     { id: 3, name: '张小华', grade_id: 2, class_id: null, school_id: 1, parent_phone: '13900139003', parent_name: '张大华', face_id: 'face_003', session_ids: [3] },
     { id: 4, name: '刘小强', grade_id: 5, class_id: null, school_id: 1, parent_phone: '13900139004', parent_name: '刘大强', face_id: 'face_004', session_ids: [] }
   ],
-  escortTeachers: [],
+  escortTeachers: [
+    {
+      id: 1,
+      name: '测试老师',
+      phone: '123',
+      username: 'escort001',
+      password: '$2b$10$JtHZm.yLRN6Q8AoELRx9CuAWlTH10auNZm1j6IrYX9zp7OP6R2kL2',
+      session_ids: [4],
+      school_id: 1
+    }
+  ],
   classTeachers: [],
   rideRecords: [
     { id: 1, student_id: 1, bus_id: 1, board_time: new Date('2026-05-01 07:30:00'), alight_time: new Date('2026-05-01 08:00:00'), board_stop: '天通苑', alight_stop: '学校' },
