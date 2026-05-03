@@ -271,7 +271,7 @@ function teacherRouter(key, relType) {
 app.use('/api/escort-teachers', teacherRouter('escortTeachers', 'escortTeachers'));
 app.use('/api/class-teachers',  teacherRouter('classTeachers',  'classTeachers'));
 
-app.get('/api/debug/escort-teachers', auth, (req, res) => {
+app.get('/api/debug/escort-teachers', (req, res) => {
   res.json(db.escortTeachers.map(t => ({
     id: t.id,
     name: t.name,
