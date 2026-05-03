@@ -156,7 +156,9 @@ app.post('/api/auth/login', async (req, res) => {
 // 跟车老师登录（用 phone 作为用户名）
 app.post('/api/auth/escort-login', async (req, res) => {
   const { username, password } = req.body;
-  const teacher = db.escortTeachers.find(t => t.phone === username || t.name === username);
+  const teacher = db.escortTeachers.find(t =>
+    t.phone === username || t.name === username || t.username === username
+  );
   if (!teacher || !await bcrypt.compare(password, teacher.password))
     return res.status(401).json({ message: '账号或密码错误' });
   const token = jwt.sign({ id: teacher.id, role: 'escort', session_ids: teacher.session_ids, school_id: teacher.school_id }, SECRET, { expiresIn: '8h' });
