@@ -277,6 +277,26 @@ app.put('/api/students/:id/face', auth, (req, res) => {
   res.json({ success: true });
 });
 
+// 跟车老师 App 学生列表
+app.get('/api/app/students', auth, (req, res) => {
+  const { session_id } = req.query;
+  if (!session_id) return res.status(400).json({ message: 'session_id 不能为空' });
+  const sid = +session_id;
+  const sessionStops = db.stops
+    .filter(s => s.session_id === sid)
+    .sort((a, b) => a.order - b.order);
+  const defaultStop = sessionStops.find(s => s.name !== '学校')?.name || sessionStops[0]?.name || '';
+  const list = db.students
+    .filter(s => (s.session_ids || []).includes(sid))
+    .map(s => ({
+      id: s.id,
+      name: s.name,
+      stop: defaultStop,
+      face_id: s.face_id || ''
+    }));
+  res.json(list);
+});
+
 // ── 学生导入模板 ──────────────────────────────────────────
 app.get('/api/students/import-template', auth, (req, res) => {
   const { school_id } = req.query;
