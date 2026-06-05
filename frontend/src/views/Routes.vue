@@ -4,6 +4,7 @@
       <span>路线管理</span>
       <el-button type="primary" size="small" style="float:right" @click="openDialog()">新增路线</el-button>
     </template>
+    <div style="width:100%;overflow-x:auto">
     <el-table :data="list" row-key="id">
       <el-table-column prop="name" label="路线名称" />
       <el-table-column label="班次数">
@@ -20,8 +21,9 @@
         </template>
       </el-table-column>
     </el-table>
+    </div>
 
-    <el-dialog v-model="visible" :title="form.id?'编辑路线':'新增路线'" width="380px">
+    <el-dialog v-model="visible" :title="form.id?'编辑路线':'新增路线'" :width="isMobile ? '90%' : '380px'">
       <el-form :model="form" label-width="80px">
         <el-form-item label="路线名称"><el-input v-model="form.name" /></el-form-item>
       </el-form>
@@ -39,7 +41,9 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '../api';
 import { useSchoolStore } from '../stores/school';
+import { useIsMobile } from '../composables/useIsMobile';
 
+const { isMobile } = useIsMobile();
 const sid = useSchoolStore().current?.id;
 const router = useRouter();
 const list = ref([]);

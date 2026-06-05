@@ -1,12 +1,13 @@
 <template>
   <div>
     <el-row :gutter="16">
-      <el-col :span="12">
+      <el-col :xs="24" :span="12">
         <el-card>
           <template #header>
             <span>年级管理</span>
             <el-button type="primary" size="small" style="float:right" @click="openGradeDialog()">新增年级</el-button>
           </template>
+          <div style="width:100%;overflow-x:auto">
           <el-table :data="grades" size="small">
             <el-table-column prop="name" label="年级名称" />
             <el-table-column label="班级数">
@@ -19,14 +20,16 @@
               </template>
             </el-table-column>
           </el-table>
+          </div>
         </el-card>
       </el-col>
-      <el-col :span="12">
+      <el-col :xs="24" :span="12">
         <el-card>
           <template #header>
             <span>班级管理</span>
             <el-button type="primary" size="small" style="float:right" @click="openClassDialog()">新增班级</el-button>
           </template>
+          <div style="width:100%;overflow-x:auto">
           <el-table :data="classes" size="small">
             <el-table-column prop="Grade.name" label="年级" />
             <el-table-column prop="name" label="班级名称" />
@@ -37,11 +40,12 @@
               </template>
             </el-table-column>
           </el-table>
+          </div>
         </el-card>
       </el-col>
     </el-row>
 
-    <el-dialog v-model="gradeVisible" :title="gradeForm.id?'编辑年级':'新增年级'" width="360px">
+    <el-dialog v-model="gradeVisible" :title="gradeForm.id?'编辑年级':'新增年级'" :width="isMobile ? '90%' : '360px'">
       <el-form :model="gradeForm" label-width="80px">
         <el-form-item label="年级名称"><el-input v-model="gradeForm.name" /></el-form-item>
       </el-form>
@@ -51,7 +55,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="classVisible" :title="classForm.id?'编辑班级':'新增班级'" width="360px">
+    <el-dialog v-model="classVisible" :title="classForm.id?'编辑班级':'新增班级'" :width="isMobile ? '90%' : '360px'">
       <el-form :model="classForm" label-width="80px">
         <el-form-item label="所属年级">
           <el-select v-model="classForm.grade_id">
@@ -73,7 +77,9 @@ import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '../api';
 import { useSchoolStore } from '../stores/school';
+import { useIsMobile } from '../composables/useIsMobile';
 
+const { isMobile } = useIsMobile();
 const sid = useSchoolStore().current?.id;
 const grades = ref([]);
 const classes = ref([]);

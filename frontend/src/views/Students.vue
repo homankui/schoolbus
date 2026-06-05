@@ -12,55 +12,67 @@
         待绑定 {{ faceStatusSummary.pending }} / 已绑定 {{ faceStatusSummary.bound }} / 未录入 {{ faceStatusSummary.empty }}
       </span>
       <span style="float:right;display:flex;gap:8px;flex-wrap:wrap">
-        <el-input v-model="search" placeholder="搜索姓名/家长电话" size="small" style="width:180px" clearable />
-        <el-select v-model="filterGrade" clearable placeholder="年级" size="small" style="width:90px" @change="filterClass=null">
+        <el-input v-model="search" placeholder="搜索姓名/卡号" size="small" style="width:180px" clearable @change="onFilterChange" />
+        <el-select v-if="!isClassTeacher" v-model="filterGrade" clearable placeholder="年级" size="small" style="width:90px" @change="filterClass=null; onFilterChange()">
           <el-option v-for="g in grades" :key="g.id" :label="g.name" :value="g.id" />
         </el-select>
-        <el-select v-model="filterClass" clearable placeholder="班级" size="small" style="width:90px">
+        <el-select v-if="!isClassTeacher" v-model="filterClass" clearable placeholder="班级" size="small" style="width:90px" @change="onFilterChange">
           <el-option v-for="c in filteredClasses" :key="c.id" :label="c.name" :value="c.id" />
         </el-select>
-        <el-select v-model="filterFaceStatus" clearable placeholder="人脸状态" size="small" style="width:110px">
+        <el-select v-model="filterFaceStatus" clearable placeholder="人脸状态" size="small" style="width:110px" @change="onFilterChange">
           <el-option label="待绑定" value="pending" />
           <el-option label="已绑定" value="bound" />
           <el-option label="未录入" value="empty" />
         </el-select>
-        <el-button size="small" :type="filterFaceStatus === 'pending' ? 'primary' : 'default'" @click="filterFaceStatus='pending'">只看待绑定</el-button>
-        <el-button size="small" :type="filterFaceStatus === 'empty' ? 'primary' : 'default'" @click="filterFaceStatus='empty'">只看未录入</el-button>
+        <el-button size="small" @click="filterFaceStatus='pending'; onFilterChange()">只看待绑定</el-button>
+        <el-button size="small" @click="filterFaceStatus='empty'; onFilterChange()">只看未录入</el-button>
         <el-button size="small" :type="hasActiveFilters ? 'info' : 'default'" @click="resetFilters">清空筛选</el-button>
-        <el-button size="small" @click="exportPendingCSV" :disabled="faceStatusSummary.pending === 0">导出待绑定</el-button>
+        <el-button v-if="!isClassTeacher" size="small" @click="exportPendingCSV" :disabled="faceStatusSummary.pending === 0">导出待绑定</el-button>
         <el-button size="small" type="warning" @click="clearPendingSelected" :disabled="!pendingSelectedCount">清空待绑定 ({{ pendingSelectedCount }})</el-button>
         <span style="font-size:12px;color:#909399;align-self:center">照片文件名请直接使用学生卡号</span>
-        <el-button size="small" @click="exportCSV">导出</el-button>
-        <el-button size="small" @click="downloadImportTemplate">下载导入模板</el-button>
-        <el-upload :show-file-list="false" accept=".csv" :before-upload="importCSV">
+        <el-button v-if="!isClassTeacher" size="small" @click="exportCSV">导出</el-button>
+        <el-button v-if="!isClassTeacher" size="small" @click="downloadImportTemplate">下载导入模板</el-button>
+        <el-upload v-if="!isClassTeacher" :show-file-list="false" accept=".csv" :before-upload="importCSV">
           <el-button size="small">批量导入</el-button>
         </el-upload>
-        <el-upload :show-file-list="false" multiple accept=".jpg,.jpeg,.png,.webp" :before-upload="queuePhotoFile" :auto-upload="false">
-          <el-button size="small" @click="submitPhotoImport" :disabled="photoFiles.length === 0">批量导入照片{{ photoFiles.length ? ` (${photoFiles.length})` : '' }}</el-button>
+        <el-upload
+          ref="photoUploadRef"
+          :show-file-list="false"
+          multiple
+          accept=".jpg,.jpeg,.png,.webp"
+          :auto-upload="false"
+          :on-change="handlePhotoFileChange"
+          :on-remove="handlePhotoFileRemove"
+          :on-exceed="handlePhotoExceed"
+        >
+          <el-button size="small">批量导入照片{{ photoFiles.length ? ` (${photoFiles.length})` : '' }}</el-button>
         </el-upload>
+        <el-button size="small" type="primary" @click="submitPhotoImport" :disabled="photoFiles.length === 0">开始上传{{ photoFiles.length ? ` (${photoFiles.length})` : '' }}</el-button>
+        <el-button v-if="photoFiles.length" size="small" @click="clearPhotoQueue">清空已选</el-button>
         <el-button
+          v-if="!isClassTeacher"
           size="small"
           :disabled="!selected.length"
           @click="openBatchClassDialog"
         >批量调班级 ({{ selected.length }})</el-button>
-        <el-button size="small" @click="downloadClassChangeTemplate">下载调班级模板</el-button>
-        <el-upload :show-file-list="false" accept=".csv" :before-upload="importClassChange">
+        <el-button v-if="!isClassTeacher" size="small" @click="downloadClassChangeTemplate">下载调班级模板</el-button>
+        <el-upload v-if="!isClassTeacher" :show-file-list="false" accept=".csv" :before-upload="importClassChange">
           <el-button size="small">导入调班级</el-button>
         </el-upload>
-        <el-button type="primary" size="small" @click="openDialog()">新增</el-button>
+        <el-button v-if="!isClassTeacher" type="primary" size="small" @click="openDialog()">新增</el-button>
       </span>
     </template>
 
-    <el-table :data="filteredList" size="small" @selection-change="selected=$event" row-key="id">
+    <div style="width:100%;overflow-x:auto">
+    <el-table :data="list" size="small" @selection-change="selected=$event" row-key="id">
       <el-table-column type="selection" width="45" />
       <el-table-column prop="name" label="姓名" width="90" />
       <el-table-column prop="card_no" label="学生卡号" width="130" />
       <el-table-column prop="Grade.name" label="年级" width="80" />
       <el-table-column prop="Class.name" label="班级" width="70" />
       <el-table-column label="默认站点" min-width="180">
-        <template #default="{ row }">
-          <div style="font-size:12px">上车：{{ row.BoardStop?.name || '-' }}</div>
-          <div style="font-size:12px">下车：{{ row.AlightStop?.name || '-' }}</div>
+        <template #default>
+          <div style="font-size:12px;color:#909399">请在“搭乘管理”中分别维护上学/放学站点</div>
         </template>
       </el-table-column>
       <el-table-column label="家长信息">
@@ -71,6 +83,19 @@
           <div v-if="!row.parents?.length" style="font-size:12px;color:#999">
             {{ row.parent_name }} {{ row.parent_phone }}
           </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="人脸照片" width="110">
+        <template #default="{ row }">
+          <el-image
+            v-if="row.face_photo_url"
+            :src="resolveFacePhotoUrl(row.face_photo_url)"
+            :preview-src-list="[resolveFacePhotoUrl(row.face_photo_url)]"
+            fit="cover"
+            style="width:48px;height:48px;border-radius:6px"
+            preview-teleported
+          />
+          <span v-else style="font-size:12px;color:#999">暂无照片</span>
         </template>
       </el-table-column>
       <el-table-column prop="face_id" label="人脸状态" width="220">
@@ -85,38 +110,51 @@
         <template #default="{ row }">
           <el-button size="small" @click="openDialog(row)">编辑</el-button>
           <el-button v-if="row.face_import_status === 'pending'" size="small" type="warning" @click="clearPendingOne(row)">清空待绑定</el-button>
-          <el-button size="small" type="danger" @click="del(row.id)">删除</el-button>
+          <el-button v-if="!isClassTeacher" size="small" type="danger" @click="del(row.id)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
+    </div>
+
+    <el-pagination
+      style="margin-top:12px"
+      v-model:current-page="page"
+      :page-size="pageSize"
+      :total="total"
+      :page-sizes="[10, 20, 50, 100]"
+      layout="total, sizes, prev, pager, next"
+      @current-change="load"
+      @size-change="onPageSizeChange"
+    />
 
     <!-- 新增/编辑弹窗 -->
-    <el-dialog v-model="visible" :title="form.id?'编辑学生':'新增学生'" width="520px">
+    <el-dialog v-model="visible" :title="form.id?'编辑学生':'新增学生'" :width="isMobile ? '90%' : '520px'">
       <el-form :model="form" label-width="80px">
         <el-form-item label="姓名"><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="学生卡号"><el-input v-model="form.card_no" /></el-form-item>
-        <el-form-item label="年级">
+        <el-form-item v-if="!isClassTeacher" label="年级">
           <el-select v-model="form.grade_id" clearable @change="form.class_id=null">
             <el-option v-for="g in grades" :key="g.id" :label="g.name" :value="g.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="班级">
+        <el-form-item v-if="!isClassTeacher" label="班级">
           <el-select v-model="form.class_id" clearable>
             <el-option v-for="c in dialogClasses" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="上车站点">
-          <el-select v-model="form.board_stop_id" clearable filterable style="width:100%">
-            <el-option v-for="stop in stops" :key="stop.id" :label="stopOptionLabel(stop)" :value="stop.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="下车站点">
-          <el-select v-model="form.alight_stop_id" clearable filterable style="width:100%">
-            <el-option v-for="stop in stops" :key="stop.id" :label="stopOptionLabel(stop)" :value="stop.id" />
-          </el-select>
-        </el-form-item>
         <el-form-item label="人脸ID">
           <el-input v-model="form.face_id" />
+          <div style="margin-top:10px">
+            <el-image
+              v-if="form.face_photo_url"
+              :src="resolveFacePhotoUrl(form.face_photo_url)"
+              :preview-src-list="[resolveFacePhotoUrl(form.face_photo_url)]"
+              fit="cover"
+              style="width:96px;height:96px;border-radius:8px;border:1px solid #ebeef5"
+              preview-teleported
+            />
+            <div v-else style="font-size:12px;color:#909399">当前暂无人脸照片</div>
+          </div>
           <div style="font-size:12px;color:#909399;margin-top:6px">
             <template v-if="form.face_import_status === 'pending'">
               当前为照片待绑定状态，终端采集成功后会自动升级为正式人脸ID。
@@ -132,6 +170,12 @@
             <el-button size="small" type="warning" @click="clearPendingInDialog">清空当前待绑定</el-button>
           </div>
         </el-form-item>
+        <el-form-item v-if="!isClassTeacher" label="家长OpenID(测试)">
+          <el-input
+            v-model="form.parent_openid"
+            placeholder="TEST_PARENT_OPENID_VISIBLE"
+          />
+        </el-form-item>
         <el-divider>家长信息</el-divider>
         <div v-for="(p, i) in form.parents" :key="i" style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
           <el-input v-model="p.name" placeholder="家长姓名" style="width:120px" />
@@ -143,12 +187,12 @@
       </el-form>
       <template #footer>
         <el-button @click="visible=false">取消</el-button>
-        <el-button type="primary" @click="save">保存</el-button>
+        <el-button type="primary" native-type="button" @click="save">保存</el-button>
       </template>
     </el-dialog>
 
     <!-- 批量调班级弹窗 -->
-    <el-dialog v-model="batchClassVisible" title="批量调整班级" width="440px">
+    <el-dialog v-model="batchClassVisible" title="批量调整班级" :width="isMobile ? '90%' : '440px'">
       <div style="color:#666;margin-bottom:16px">
         已选 <b>{{ selected.length }}</b> 名学生，统一调整到：
       </div>
@@ -174,7 +218,7 @@
     </el-dialog>
 
     <!-- 导入结果弹窗（通用） -->
-    <el-dialog v-model="resultDialog" :title="resultTitle" width="480px">
+    <el-dialog v-model="resultDialog" :title="resultTitle" :width="isMobile ? '90%' : '480px'">
       <el-alert
         :title="resultMsg"
         :type="importResult.errors?.length ? 'warning' : 'success'"
@@ -203,8 +247,14 @@ import { ref, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api, { requestRaw } from '../api';
 import { useSchoolStore } from '../stores/school';
+import { useAuthStore } from '../stores/auth';
+import { useIsMobile } from '../composables/useIsMobile';
 
-const sid = useSchoolStore().current?.id;
+const { isMobile } = useIsMobile();
+const schoolStore = useSchoolStore();
+const authStore = useAuthStore();
+const sid = computed(() => schoolStore.current?.id || Number(authStore.schoolId || 0) || null);
+const isClassTeacher = computed(() => authStore.isClassTeacher);
 
 const list     = ref([]);
 const grades   = ref([]);
@@ -213,6 +263,11 @@ const stops    = ref([]);
 const selected = ref([]);
 const visible  = ref(false);
 const form     = ref({ parents: [] });
+
+const page      = ref(1);
+const pageSize  = ref(20);
+const total     = ref(0);
+const faceStats = ref({ pending: 0, bound: 0, empty: 0 });
 
 const search      = ref('');
 const filterGrade = ref(null);
@@ -230,6 +285,7 @@ const resultTitle  = ref('');
 const resultMsg    = ref('');
 const importResult = ref({});
 const photoFiles   = ref([]);
+const photoUploadRef = ref(null);
 
 const filteredClasses = computed(() =>
   filterGrade.value ? classes.value.filter(c => c.grade_id === filterGrade.value) : classes.value
@@ -240,42 +296,22 @@ const dialogClasses = computed(() =>
 const batchAvailableClasses = computed(() =>
   batchGradeId.value ? classes.value.filter(c => c.grade_id === batchGradeId.value) : classes.value
 );
-const faceStatusSummary = computed(() => ({
-  pending: list.value.filter(s => s.face_import_status === 'pending').length,
-  bound: list.value.filter(s => s.face_import_status !== 'pending' && !!s.face_id).length,
-  empty: list.value.filter(s => !s.face_id).length
-}));
+const faceStatusSummary = computed(() => faceStats.value);
 const hasActiveFilters = computed(() =>
   !!search.value || !!filterGrade.value || !!filterClass.value || !!filterFaceStatus.value
 );
 const pendingSelectedCount = computed(() =>
   selected.value.filter(item => item.face_import_status === 'pending').length
 );
-const filteredList = computed(() => {
-  let l = list.value;
-  if (search.value) {
-    const q = search.value.toLowerCase();
-    l = l.filter(s =>
-      s.name?.toLowerCase().includes(q) ||
-      s.card_no?.toLowerCase().includes(q) ||
-      s.parent_phone?.includes(q) ||
-      s.parents?.some(p => p.phone?.includes(q) || p.name?.includes(q))
-    );
-  }
-  if (filterGrade.value) l = l.filter(s => s.grade_id === filterGrade.value);
-  if (filterClass.value) l = l.filter(s => s.class_id === filterClass.value);
-  if (filterFaceStatus.value === 'pending') {
-    l = l.filter(s => s.face_import_status === 'pending');
-  } else if (filterFaceStatus.value === 'bound') {
-    l = l.filter(s => s.face_import_status !== 'pending' && !!s.face_id);
-  } else if (filterFaceStatus.value === 'empty') {
-    l = l.filter(s => !s.face_id);
-  }
-  return l;
-});
 
 function stopOptionLabel(stop) {
   return stop?.Session?.name ? `${stop.name}（${stop.Session.name}）` : stop?.name || '';
+}
+
+function resolveFacePhotoUrl(url) {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${window.location.origin}${url.startsWith('/') ? url : `/${url}`}`;
 }
 
 function resetFilters() {
@@ -283,22 +319,50 @@ function resetFilters() {
   filterGrade.value = null;
   filterClass.value = null;
   filterFaceStatus.value = null;
+  page.value = 1;
+  load();
 }
 
 async function load() {
-  [list.value, grades.value, classes.value, stops.value] = await Promise.all([
-    api.get('/students', { params: { school_id: sid } }),
-    api.get('/grades',   { params: { school_id: sid } }),
-    api.get('/classes',  { params: { school_id: sid } }),
-    api.get('/stops',    { params: { school_id: sid } })
+  const schoolId = sid.value;
+  const params = {
+    school_id: schoolId || undefined,
+    search: search.value || undefined,
+    grade_id: filterGrade.value || undefined,
+    class_id: filterClass.value || undefined,
+    face_status: filterFaceStatus.value || undefined,
+    page: page.value,
+    pageSize: pageSize.value
+  };
+  const res = await api.get('/students', { params });
+  list.value = res.data || [];
+  total.value = res.total || 0;
+  faceStats.value = res.stats || { pending: 0, bound: 0, empty: 0 };
+
+  [grades.value, classes.value, stops.value] = await Promise.all([
+    api.get('/grades',  { params: { school_id: schoolId || undefined } }),
+    api.get('/classes', { params: { school_id: schoolId || undefined } }),
+    api.get('/stops',   { params: { school_id: schoolId || undefined } })
   ]);
+}
+
+function onFilterChange() {
+  page.value = 1;
+  load();
+}
+
+function onPageSizeChange() {
+  page.value = 1;
+  load();
 }
 
 function openDialog(row = {}) {
   form.value = {
-    school_id: sid,
+    school_id: sid.value,
     parents: [],
+    name: '',
     card_no: '',
+    parent_openid: '',
     board_stop_id: null,
     alight_stop_id: null,
     ...row
@@ -310,21 +374,42 @@ function openDialog(row = {}) {
 }
 
 async function save() {
-  const data = { ...form.value };
-  data.card_no = data.card_no?.trim?.() || '';
+  // 深拷贝，彻底去除 Vue 响应式代理，避免数据序列化问题
+  const data = JSON.parse(JSON.stringify(form.value));
+  data.name = (data.name || '').trim();
+  if (!data.name) {
+    ElMessage.warning('请填写学生姓名');
+    return;
+  }
+  data.card_no = (data.card_no || '').trim();
   if (!data.card_no) {
     ElMessage.warning('请填写学生卡号');
     return;
   }
-  if (data.parents?.length) {
-    data.parent_phone = data.parents[0].phone;
-    data.parent_name  = data.parents[0].name;
+  if (Array.isArray(data.parents) && data.parents.length) {
+    data.parent_phone = data.parents[0].phone || '';
+    data.parent_name  = data.parents[0].name || '';
   }
-  if (data.id) await api.put(`/students/${data.id}`, data);
-  else await api.post('/students', data);
-  visible.value = false;
-  ElMessage.success('保存成功');
-  load();
+  if (isClassTeacher.value) {
+    delete data.grade_id;
+    delete data.class_id;
+    delete data.school_id;
+    delete data.parent_openid;
+  }
+  try {
+    if (data.id) {
+      await api.put(`/students/${data.id}`, data);
+    } else {
+      await api.post('/students', data);
+    }
+    visible.value = false;
+    ElMessage.success('保存成功');
+    load();
+  } catch (e) {
+    console.error('保存学生失败', e);
+    const msg = e?.response?.data?.message || e?.message || '保存失败，请重试';
+    ElMessage.error(msg);
+  }
 }
 
 async function del(id) {
@@ -467,7 +552,6 @@ async function downloadFile(url, defaultFilename) {
   try {
     const response = await requestRaw({
       url,
-      params: { school_id: sid },
       responseType: 'blob'
     });
     const disposition = response.headers?.['content-disposition'] || '';
@@ -501,7 +585,8 @@ function downloadClassChangeTemplate() {
 
 async function importCSV(file) {
   const text = await file.text();
-  const res  = await api.post(`/students/import?school_id=${sid}`, text, {
+  const schoolId = sid.value;
+  const res  = await api.post(`/students/import?school_id=${schoolId || ''}`, text, {
     headers: { 'Content-Type': 'text/plain' }
   });
   resultTitle.value = '导入结果';
@@ -511,9 +596,26 @@ async function importCSV(file) {
   return false;
 }
 
-function queuePhotoFile(file) {
-  photoFiles.value = [...photoFiles.value, file];
-  return false;
+function handlePhotoFileChange(uploadFile, uploadFiles) {
+  photoFiles.value = uploadFiles
+    .map(item => item.raw)
+    .filter(Boolean);
+}
+
+function handlePhotoFileRemove(uploadFile, uploadFiles) {
+  photoFiles.value = uploadFiles
+    .map(item => item.raw)
+    .filter(Boolean);
+}
+
+function clearPhotoQueue() {
+  photoFiles.value = [];
+  photoUploadRef.value?.clearFiles?.();
+}
+
+function handlePhotoExceed(files) {
+  if (!files?.length) return;
+  photoFiles.value = files;
 }
 
 async function submitPhotoImport() {
@@ -526,14 +628,16 @@ async function submitPhotoImport() {
   photoFiles.value.forEach(file => formData.append('photos', file));
 
   try {
-    const res = await api.post(`/students/photo-import?school_id=${sid}`, formData, {
+    const schoolId = sid.value;
+    const res = await api.post(`/students/photo-import?school_id=${schoolId || ''}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     resultTitle.value = '照片导入结果';
     resultMsg.value = `成功写入 ${res.updated || 0} 张待绑定照片，跳过 ${res.skipped || 0} 张已有正式人脸的学生照片`;
     importResult.value = res;
     resultDialog.value = true;
-    photoFiles.value = [];
+    clearPhotoQueue();
+    await load();
   } catch (error) {
     ElMessage.error(error.response?.data?.message || '照片导入失败');
   }
@@ -551,5 +655,11 @@ async function importClassChange(file) {
   return false;
 }
 
-onMounted(load);
+onMounted(async () => {
+  if (isClassTeacher.value) {
+    filterGrade.value = Number(authStore.gradeId || 0) || null;
+    filterClass.value = Number(authStore.classId || 0) || null;
+  }
+  await load();
+});
 </script>

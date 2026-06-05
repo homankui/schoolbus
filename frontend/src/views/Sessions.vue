@@ -10,6 +10,7 @@
         <el-button type="primary" size="small" @click="openDialog()">新增</el-button>
       </span>
     </template>
+    <div style="width:100%;overflow-x:auto">
     <el-table :data="list">
       <el-table-column prop="name" label="班次名称" />
       <el-table-column prop="type" label="类型" width="100">
@@ -34,8 +35,21 @@
         </template>
       </el-table-column>
     </el-table>
+    </div>
 
-    <el-dialog v-model="visible" :title="form.id?'编辑班次':'新增班次'" width="440px">
+    <div style="margin-top:12px;display:flex;justify-content:flex-end">
+      <el-pagination
+        v-model:current-page="page"
+        v-model:page-size="pageSize"
+        :page-sizes="[10, 20, 50]"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="onPageChange"
+        @current-change="onPageChange"
+      />
+    </div>
+
+    <el-dialog v-model="visible" :title="form.id?'编辑班次':'新增班次'" :width="isMobile ? '90%' : '440px'">
       <el-form :model="form" label-width="90px">
         <el-form-item label="班次名称"><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="类型">
@@ -72,7 +86,9 @@ import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '../api';
 import { useSchoolStore } from '../stores/school';
+import { useIsMobile } from '../composables/useIsMobile';
 
+const { isMobile } = useIsMobile();
 const sid = useSchoolStore().current?.id;
 const router = useRouter();
 const route = useRoute();
@@ -82,17 +98,29 @@ const buses = ref([]);
 const visible = ref(false);
 const form = ref({});
 const filterRouteId = ref(route.query.route_id ? +route.query.route_id : null);
+const page = ref(1);
+const pageSize = ref(10);
+const total = ref(0);
 
 function goStops(row) { router.push({ path: '/stops', query: { session_id: row.id } }); }
 
+function onPageChange() { load(); }
+
 async function load() {
-  const params = { school_id: sid };
+  const params = { school_id: sid, page: page.value, pageSize: pageSize.value };
   if (filterRouteId.value) params.route_id = filterRouteId.value;
-  [list.value, routes.value, buses.value] = await Promise.all([
-    api.get('/sessions', { params }),
+  [routes.value, buses.value] = await Promise.all([
     api.get('/routes', { params: { school_id: sid } }),
     api.get('/buses',  { params: { school_id: sid } })
   ]);
+  const res = await api.get('/sessions', { params });
+  if (res && res.data) {
+    list.value = res.data;
+    total.value = res.total || 0;
+  } else {
+    list.value = res || [];
+    total.value = 0;
+  }
 }
 
 function openDialog(row = {}) { form.value = { school_id: sid, ...row }; visible.value = true; }

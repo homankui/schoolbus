@@ -5,6 +5,7 @@
       <el-button type="primary" size="small" style="float:right" @click="openDialog()">新增</el-button>
     </template>
 
+    <div style="width:100%;overflow-x:auto">
     <el-table :data="list" size="small">
       <el-table-column prop="name" label="姓名" width="90" />
       <el-table-column prop="phone" label="电话" width="130" />
@@ -24,8 +25,9 @@
         </template>
       </el-table-column>
     </el-table>
+    </div>
 
-    <el-dialog v-model="visible" :title="form.id?'编辑跟车老师':'新增跟车老师'" width="440px">
+    <el-dialog v-model="visible" :title="form.id?'编辑跟车老师':'新增跟车老师'" :width="isMobile ? '90%' : '440px'">
       <el-form :model="form" label-width="80px">
         <el-form-item label="姓名"><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="电话"><el-input v-model="form.phone" /></el-form-item>
@@ -53,7 +55,9 @@ import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '../api';
 import { useSchoolStore } from '../stores/school';
+import { useIsMobile } from '../composables/useIsMobile';
 
+const { isMobile } = useIsMobile();
 const sid = useSchoolStore().current?.id;
 const list     = ref([]);
 const sessions = ref([]);

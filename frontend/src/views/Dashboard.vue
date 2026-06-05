@@ -4,7 +4,7 @@
       {{ schoolStore.current?.name }} — 概览
     </div>
     <el-row :gutter="16" style="margin-bottom:16px">
-      <el-col :span="6" v-for="card in stats" :key="card.label">
+      <el-col :xs="12" :sm="6" v-for="card in stats" :key="card.label">
         <el-card shadow="hover">
           <div style="font-size:32px;font-weight:bold;color:#409eff">{{ card.value }}</div>
           <div style="color:#999;margin-top:6px">{{ card.label }}</div>
@@ -12,7 +12,7 @@
       </el-col>
     </el-row>
     <el-row :gutter="16">
-      <el-col :span="12">
+      <el-col :xs="24" :sm="12">
         <el-card>
           <template #header>今日乘车记录</template>
           <el-table :data="recentRecords" size="small">
@@ -25,7 +25,7 @@
           </el-table>
         </el-card>
       </el-col>
-      <el-col :span="12">
+      <el-col :xs="24" :sm="12">
         <el-card>
           <template #header>最新通知</template>
           <el-table :data="notifications" size="small">

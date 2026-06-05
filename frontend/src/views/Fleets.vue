@@ -5,6 +5,7 @@
       <el-button type="primary" size="small" style="float:right" @click="openDialog()">新增车队</el-button>
     </template>
 
+    <div style="width:100%;overflow-x:auto">
     <el-table :data="list">
       <el-table-column prop="name" label="车队名称" />
       <el-table-column label="所属学校">
@@ -27,8 +28,9 @@
         </template>
       </el-table-column>
     </el-table>
+    </div>
 
-    <el-dialog v-model="visible" :title="form.id ? '编辑车队' : '新增车队'" width="380px">
+    <el-dialog v-model="visible" :title="form.id ? '编辑车队' : '新增车队'" :width="isMobile ? '90%' : '380px'">
       <el-form :model="form" label-width="90px">
         <el-form-item label="车队名称">
           <el-input v-model="form.name" placeholder="如：第一车队" />
@@ -47,7 +49,9 @@ import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '../api';
 import { useSchoolStore } from '../stores/school';
+import { useIsMobile } from '../composables/useIsMobile';
 
+const { isMobile } = useIsMobile();
 const sid = useSchoolStore().current?.id;
 const list    = ref([]);
 const buses   = ref([]);

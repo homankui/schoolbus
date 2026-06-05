@@ -4,6 +4,7 @@
       <span>学校管理</span>
       <el-button type="primary" size="small" style="float:right" @click="openDialog()">新增学校</el-button>
     </template>
+    <div style="width:100%;overflow-x:auto">
     <el-table :data="list">
       <el-table-column prop="name" label="学校名称" />
       <el-table-column prop="address" label="地址" />
@@ -16,8 +17,9 @@
         </template>
       </el-table-column>
     </el-table>
+    </div>
 
-    <el-dialog v-model="visible" :title="form.id ? '编辑学校' : '新增学校'" width="440px">
+    <el-dialog v-model="visible" :title="form.id ? '编辑学校' : '新增学校'" :width="isMobile ? '90%' : '440px'">
       <el-form :model="form" label-width="90px">
         <el-form-item label="学校名称"><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="地址"><el-input v-model="form.address" /></el-form-item>
@@ -36,7 +38,9 @@ import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '../api';
 import { useSchoolStore } from '../stores/school';
+import { useIsMobile } from '../composables/useIsMobile';
 
+const { isMobile } = useIsMobile();
 const schoolStore = useSchoolStore();
 const list = ref([]);
 const visible = ref(false);

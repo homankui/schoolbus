@@ -1,6 +1,7 @@
 <template>
   <el-card>
     <template #header>通知管理</template>
+    <div style="width:100%;overflow-x:auto">
     <el-table :data="list">
       <el-table-column prop="Student.name" label="学生" />
       <el-table-column prop="type" label="类型">
@@ -25,13 +26,16 @@
         </template>
       </el-table-column>
     </el-table>
+    </div>
   </el-card>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import api from '../api';
+import { useIsMobile } from '../composables/useIsMobile';
 
+const { isMobile } = useIsMobile();
 const list = ref([]);
 function fmt(t) { return t ? new Date(t).toLocaleString('zh-CN', { hour12: false }) : '-'; }
 async function load() { list.value = await api.get('/notifications'); }
