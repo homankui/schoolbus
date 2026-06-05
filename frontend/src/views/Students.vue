@@ -131,7 +131,11 @@
     <el-dialog v-model="visible" :title="form.id?'编辑学生':'新增学生'" :width="isMobile ? '90%' : '520px'">
       <el-form :model="form" label-width="80px">
         <el-form-item label="姓名"><el-input v-model="form.name" /></el-form-item>
-        <el-form-item label="学生卡号"><el-input v-model="form.card_no" /></el-form-item>
+        <el-form-item label="学生卡号">
+          <el-select v-model="form.card_no" filterable allow-create clearable placeholder="选择或手动输入卡号" style="width:100%" @focus="loadUnassignedCards">
+            <el-option v-for="card in unassignedCards" :key="card.id" :label="card.card_no" :value="card.card_no" />
+          </el-select>
+        </el-form-item>
         <el-form-item v-if="!isClassTeacher" label="年级">
           <el-select v-model="form.grade_id" clearable @change="form.class_id=null">
             <el-option v-for="g in grades" :key="g.id" :label="g.name" :value="g.id" />
@@ -272,6 +276,7 @@ const faceStats = ref({ pending: 0, bound: 0, empty: 0 });
 const search      = ref('');
 const filterGrade = ref(null);
 const filterClass = ref(null);
+const unassignedCards = ref([]);
 const filterFaceStatus = ref(null);
 
 // 批量调班级
@@ -354,6 +359,14 @@ function onFilterChange() {
 function onPageSizeChange() {
   page.value = 1;
   load();
+}
+
+async function loadUnassignedCards() {
+  const schoolId = sid.value;
+  if (!schoolId) { unassignedCards.value = []; return; }
+  try {
+    unassignedCards.value = await api.get('/cards/unassigned', { params: { school_id: schoolId } });
+  } catch { unassignedCards.value = []; }
 }
 
 function openDialog(row = {}) {

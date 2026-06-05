@@ -141,6 +141,7 @@ const menus = computed(() => {
     { title: '学生管理', items: [
       { path: '/grades',         label: '年级/班级' },
       { path: '/students',       label: '学生管理' },
+      { path: '/cards',          label: '卡片管理' },
       { path: '/parent-binding', label: '公众号绑定' },
       { path: '/class-teachers', label: '班级老师' }
     ]},

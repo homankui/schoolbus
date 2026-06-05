@@ -62,6 +62,7 @@ const createAppRoutes = require('./routes/appApi');
 const createUserRoutes = require('./routes/users');
 const createBusTrajectoryRoutes = require('./routes/busTrajectory');
 const createStressTestRoutes = require('./routes/stressTest');
+const createCardRoutes = require('./routes/cards');
 
 // ── 微信推送服务（共享）───────────────────────────────────────
 const { sendParentBoardNotice } = require('./services/wechatNotify');
@@ -129,6 +130,9 @@ const appRouter = createAppRoutes(prisma, io, {
   getSessionArrivalState, buildSessionRealtimeSnapshot, saveBusLocation: saveBusFn,
   wgs84ToGcj02, detectSessionArrival
 });
+
+// 9. 卡片管理路由
+const cardRouter = createCardRoutes(prisma, { auth, isAdminUser, isSchoolLeaderUser });
 
 // ════════════════════════════════════════════════════════════
 // 挂载路由
@@ -198,6 +202,9 @@ app.use('/api', createBusTrajectoryRoutes(prisma, auth));
 
 // 压力测试
 app.use('/api', createStressTestRoutes(prisma, auth));
+
+// 卡片管理
+app.use('/api/cards', cardRouter);
 
 // App 接口
 app.use('/api/app', appRouter);
