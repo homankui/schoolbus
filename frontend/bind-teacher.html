@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>教职工绑定</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f7fa;
+      color: #303133;
+    }
+    .wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      padding: 28px 22px;
+    }
+    h1 { margin: 0 0 10px; font-size: 24px; text-align: center; }
+    .desc { margin: 0 0 22px; color: #606266; font-size: 14px; line-height: 1.6; text-align: center; }
+    .field { margin-bottom: 16px; }
+    .label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+    .input, .select {
+      width: 100%;
+      border: 1px solid #dcdfe6;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 15px;
+      outline: none;
+      background: #fff;
+    }
+    .input:focus, .select:focus {
+      border-color: #409eff;
+      box-shadow: 0 0 0 3px rgba(64,158,255,0.12);
+    }
+    .btn {
+      width: 100%;
+      border: 0;
+      border-radius: 10px;
+      padding: 13px 16px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      background: #409eff;
+      cursor: pointer;
+    }
+    .btn[disabled] { opacity: 0.65; cursor: not-allowed; }
+    .msg {
+      margin-top: 16px;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      display: none;
+    }
+    .msg.show { display: block; }
+    .msg.success { background: #f0f9eb; color: #67c23a; }
+    .msg.error { background: #fef0f0; color: #f56c6c; }
+    .openid-tip {
+      margin-top: 12px;
+      color: #909399;
+      font-size: 12px;
+      word-break: break-all;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>教职工绑定</h1>
+      <p class="desc">请选择您的身份并输入系统账号完成绑定。</p>
+
+      <form id="bindForm">
+        <div class="field">
+          <label class="label" for="role">身份</label>
+          <select id="role" class="select">
+            <option value="class_teacher">班级老师</option>
+            <option value="escort_teacher">跟车老师</option>
+            <option value="school_leader">学校领导</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="username">用户名</label>
+          <input id="username" class="input" placeholder="请输入系统用户名" autocomplete="off" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="password">密码</label>
+          <input id="password" class="input" type="password" placeholder="请输入系统密码" autocomplete="off" />
+        </div>
+
+        <button id="submitBtn" class="btn" type="submit">立即绑定</button>
+      </form>
+
+      <div id="message" class="msg"></div>
+      <div id="openidTip" class="openid-tip"></div>
+    </div>
+  </div>
+
+  <script>
+    // 无 openid 时自动跳转微信 OAuth 静默授权
+    (function(){
+      var p = new URLSearchParams(window.location.search);
+      if (!p.get('openid') && !p.get('code')) {
+        fetch('/api/wechat/app-id').then(function(r){ return r.json(); }).then(function(d){
+          if (d.appId) {
+            var redirectUri = encodeURIComponent(location.protocol + '//' + location.host + '/api/wechat/oauth-callback');
+            var state = encodeURIComponent(location.pathname + location.search);
+            location.href = 'https://open.weixin.qq.com/connect/oauth2/authorize?appid=' + d.appId + '&redirect_uri=' + redirectUri + '&response_type=code&scope=snsapi_base&state=' + state + '#wechat_redirect';
+          }
+        });
+      }
+    })();
+    const form = document.getElementById('bindForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const messageEl = document.getElementById('message');
+    const openidTipEl = document.getElementById('openidTip');
+    const roleEl = document.getElementById('role');
+    const params = new URLSearchParams(window.location.search);
+    const openid = (params.get('openid') || '').trim();
+
+    openidTipEl.textContent = openid
+      ? `当前绑定标识：${openid}`
+      : '当前链接未携带 openid，请从正确的微信链接进入。';
+
+    function showMessage(type, text) {
+      messageEl.className = `msg show ${type}`;
+      messageEl.textContent = text;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const role = roleEl.value;
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
+
+      if (!openid) {
+        showMessage('error', '缺少 openid，请从正确的微信入口重新进入绑定页面。');
+        return;
+      }
+      if (!username || !password) {
+        showMessage('error', '请填写用户名和密码。');
+        return;
+      }
+
+      const apiMap = {
+        class_teacher: '/api/wechat/bind-class-teacher',
+        escort_teacher: '/api/wechat/bind-escort-teacher',
+        school_leader: '/api/wechat/bind-school-leader'
+      };
+      const homeMap = {
+        class_teacher: '/teacher-home.html',
+        escort_teacher: '/escort-home.html',
+        school_leader: '/leader-home.html'
+      };
+      const apiPath = apiMap[role];
+      const homePath = homeMap[role];
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = '绑定中...';
+      messageEl.className = 'msg';
+
+      try {
+        const response = await fetch(apiPath, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, openid })
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || result.success === false) {
+          showMessage('error', result.message || '绑定失败，请稍后重试。');
+          return;
+        }
+
+        showMessage('success', `绑定成功：${result.teacher_name || result.name || username}`);
+        messageEl.innerHTML +=
+          `<br><a style="display:inline-block;margin-top:8px;padding:8px 14px;background:#67c23a;color:#fff;border-radius:8px;text-decoration:none;font-weight:600" href="${homePath}?openid=${encodeURIComponent(openid)}">进入首页</a>`;
+        form.reset();
+      } catch (error) {
+        showMessage('error', '网络异常，请稍后重试。');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '立即绑定';
+      }
+    });
+  </script>
+</body>
+</html>

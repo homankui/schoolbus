@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>家长绑定</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f7fa;
+      color: #303133;
+    }
+    .wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      padding: 28px 22px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 24px;
+      text-align: center;
+    }
+    .desc {
+      margin: 0 0 22px;
+      color: #606266;
+      font-size: 14px;
+      line-height: 1.6;
+      text-align: center;
+    }
+    .field { margin-bottom: 16px; }
+    .label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .input {
+      width: 100%;
+      border: 1px solid #dcdfe6;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 15px;
+      outline: none;
+    }
+    .input:focus {
+      border-color: #409eff;
+      box-shadow: 0 0 0 3px rgba(64,158,255,0.12);
+    }
+    .hint {
+      margin: 4px 0 0;
+      color: #909399;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .btn {
+      width: 100%;
+      border: 0;
+      border-radius: 10px;
+      padding: 13px 16px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      background: #409eff;
+      cursor: pointer;
+    }
+    .btn[disabled] {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+    .msg {
+      margin-top: 16px;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      display: none;
+    }
+    .msg.show { display: block; }
+    .msg.success {
+      background: #f0f9eb;
+      color: #67c23a;
+    }
+    .msg.error {
+      background: #fef0f0;
+      color: #f56c6c;
+    }
+    .openid-tip {
+      margin-top: 12px;
+      color: #909399;
+      font-size: 12px;
+      word-break: break-all;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>家长绑定</h1>
+      <p class="desc">请输入学生姓名和学生卡号，完成公众号通知绑定。</p>
+
+      <form id="bindForm">
+        <div class="field">
+          <label class="label" for="studentName">学生姓名</label>
+          <input id="studentName" class="input" name="student_name" placeholder="请输入学生姓名" autocomplete="off" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="cardNo">学生卡号</label>
+          <input id="cardNo" class="input" name="card_no" placeholder="请输入学生卡号" autocomplete="off" />
+        </div>
+
+
+        <button id="submitBtn" class="btn" type="submit">立即绑定</button>
+      </form>
+
+      <div id="message" class="msg"></div>
+      <div id="openidTip" class="openid-tip"></div>
+    </div>
+  </div>
+
+  <script>
+    // 无 openid 时自动跳转微信 OAuth 静默授权
+    (function(){
+      var p = new URLSearchParams(window.location.search);
+      if (!p.get('openid') && !p.get('code')) {
+        fetch('/api/wechat/app-id').then(function(r){ return r.json(); }).then(function(d){
+          if (d.appId) {
+            var redirectUri = encodeURIComponent(location.protocol + '//' + location.host + '/api/wechat/oauth-callback');
+            var state = encodeURIComponent(location.pathname + location.search);
+            location.href = 'https://open.weixin.qq.com/connect/oauth2/authorize?appid=' + d.appId + '&redirect_uri=' + redirectUri + '&response_type=code&scope=snsapi_base&state=' + state + '#wechat_redirect';
+          }
+        });
+      }
+    })();
+    const form = document.getElementById('bindForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const messageEl = document.getElementById('message');
+    const openidTipEl = document.getElementById('openidTip');
+    const params = new URLSearchParams(window.location.search);
+    const openid = (params.get('openid') || '').trim();
+
+    openidTipEl.textContent = openid
+      ? `当前绑定标识：${openid}`
+      : '当前链接未携带 openid，请从正确的微信链接进入。';
+
+    function showMessage(type, text) {
+      messageEl.className = `msg show ${type}`;
+      messageEl.textContent = text;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const student_name = document.getElementById('studentName').value.trim();
+      const card_no = document.getElementById('cardNo').value.trim();
+
+      if (!openid) {
+        showMessage('error', '缺少 openid，请从正确的微信入口重新进入绑定页面。');
+        return;
+      }
+      if (!student_name || !card_no) {
+        showMessage('error', '请完整填写学生姓名和学生卡号。');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = '绑定中...';
+      messageEl.className = 'msg';
+      messageEl.textContent = '';
+
+      try {
+        const response = await fetch('/api/wechat/bind-parent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ student_name, card_no, openid })
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || result.success === false) {
+          showMessage('error', result.message || '绑定失败，请稍后重试。');
+          return;
+        }
+
+        showMessage('success', `绑定成功：${result.student_name || student_name}`);
+        messageEl.innerHTML +=
+          '<br><a class="btn btn-plain" style="display:inline-block;margin-top:12px;width:auto;padding:8px 14px;" href="javascript:void(0)" onclick="location.reload()">继续绑定另一个学生</a>'
+          + `<br><a class="btn btn-primary" style="display:inline-block;margin-top:8px;text-decoration:none;color:#fff" href="/parent-home.html?openid=${encodeURIComponent(openid)}">返回首页</a>`;
+        form.reset();
+      } catch (error) {
+        showMessage('error', '网络异常，请稍后重试。');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '立即绑定';
+      }
+    });
+  </script>
+</body>
+</html>

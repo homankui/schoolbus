@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>实时地图</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f7fa;
+      color: #303133;
+    }
+    .wrap {
+      min-height: 100vh;
+      padding: 18px;
+    }
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .page-title {
+      margin: 0 0 10px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .page-desc {
+      margin: 0 0 18px;
+      color: #606266;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      margin: 0 0 14px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #303133;
+    }
+    .meta {
+      margin: 6px 0;
+      font-size: 14px;
+      color: #606266;
+      line-height: 1.6;
+    }
+    .msg {
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      display: none;
+      margin-bottom: 16px;
+    }
+    .msg.show { display: block; }
+    .msg.success {
+      background: #f0f9eb;
+      color: #67c23a;
+    }
+    .msg.error {
+      background: #fef0f0;
+      color: #f56c6c;
+    }
+    .loading {
+      color: #909399;
+      font-size: 14px;
+      text-align: center;
+      padding: 20px 0;
+    }
+    .hidden { display: none; }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .summary-item {
+      border-radius: 12px;
+      background: #f7fbff;
+      border: 1px solid #e6f1fc;
+      padding: 14px;
+    }
+    .summary-label {
+      font-size: 12px;
+      color: #909399;
+      margin-bottom: 6px;
+    }
+    .summary-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #303133;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    #map-container {
+      width: 100%;
+      height: 420px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #eef3f8;
+      border: 1px solid #ebeef5;
+    }
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .auto-refresh-tip {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #909399;
+    }
+    .student-switcher {
+      margin-bottom: 16px;
+      display: none;
+    }
+    .student-switcher.show { display: block; }
+    .student-switcher .label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #606266;
+    }
+    .student-switcher .select {
+      width: 100%;
+      max-width: 320px;
+      border: 1px solid #dcdfe6;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 15px;
+      background: #fff;
+      outline: none;
+    }
+    .student-switcher .select:focus {
+      border-color: #409eff;
+    }
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-primary {
+      background: #409eff;
+      color: #fff;
+    }
+    .btn-plain {
+      background: #fff;
+      color: #409eff;
+      border: 1px solid #b3d8ff;
+    }
+    .btn[disabled] {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+    @media (max-width: 640px) {
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+      #map-container {
+        height: 320px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="container">
+      <h1 class="page-title">实时地图</h1>
+      <p class="page-desc">查看学生当前班次校车的最新定位。若车辆暂未上报位置，页面会显示暂无定位提示。</p>
+
+      <div id="studentSwitcher" class="student-switcher">
+        <label class="label" for="studentSelect">切换学生</label>
+        <select id="studentSelect" class="select"></select>
+      </div>
+
+      <div id="message" class="msg"></div>
+      <div id="loading" class="loading">加载中...</div>
+
+      <div id="content" class="hidden">
+        <div class="card">
+          <div class="card-title">学生信息</div>
+          <div id="studentName" class="meta">-</div>
+          <div id="studentGradeClass" class="meta">-</div>
+          <div id="studentCardNo" class="meta">-</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">当前车辆信息</div>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div class="summary-label">当前班次</div>
+              <div id="sessionName" class="summary-value">暂无</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">车牌号</div>
+              <div id="busPlate" class="summary-value">暂无</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">路线</div>
+              <div id="routeName" class="summary-value">暂无</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">最近定位时间</div>
+              <div id="locationTime" class="summary-value">暂无</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">定位状态</div>
+              <div id="locationStatus" class="summary-value">暂无</div>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="refreshBtn" class="btn btn-primary" type="button">刷新位置</button>
+            <a id="backHomeLink" class="btn btn-plain" href="#">返回首页</a>
+          </div>
+          <div class="auto-refresh-tip">页面会每 10 秒自动刷新一次位置，也可手动点击“刷新位置”。</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">地图位置</div>
+          <div id="map-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // 无 openid 时自动跳转微信 OAuth 静默授权
+    (function(){
+      var p = new URLSearchParams(window.location.search);
+      if (!p.get('openid') && !p.get('code')) {
+        fetch('/api/wechat/app-id').then(function(r){ return r.json(); }).then(function(d){
+          if (d.appId) {
+            var redirectUri = encodeURIComponent(location.protocol + '//' + location.host + '/api/wechat/oauth-callback');
+            var state = encodeURIComponent(location.pathname + location.search);
+            location.href = 'https://open.weixin.qq.com/connect/oauth2/authorize?appid=' + d.appId + '&redirect_uri=' + redirectUri + '&response_type=code&scope=snsapi_base&state=' + state + '#wechat_redirect';
+          }
+        });
+      }
+    })();
+    const params = new URLSearchParams(window.location.search);
+    const openid = (params.get('openid') || '').trim();
+    let currentStudentId = Number(params.get('student_id')) || null;
+
+    const studentSwitcherEl = document.getElementById('studentSwitcher');
+    const studentSelectEl = document.getElementById('studentSelect');
+    const messageEl = document.getElementById('message');
+    const loadingEl = document.getElementById('loading');
+    const contentEl = document.getElementById('content');
+    const studentNameEl = document.getElementById('studentName');
+    const studentGradeClassEl = document.getElementById('studentGradeClass');
+    const studentCardNoEl = document.getElementById('studentCardNo');
+    const sessionNameEl = document.getElementById('sessionName');
+    const busPlateEl = document.getElementById('busPlate');
+    const routeNameEl = document.getElementById('routeName');
+    const locationTimeEl = document.getElementById('locationTime');
+    const locationStatusEl = document.getElementById('locationStatus');
+    const refreshBtnEl = document.getElementById('refreshBtn');
+    const backHomeLinkEl = document.getElementById('backHomeLink');
+
+    let map = null;
+    let marker = null;
+    let mapScriptLoaded = false;
+    let isRefreshing = false;
+    let socket = null;
+    let fallbackRefreshTimer = null;
+    let connectionHintTimer = null;
+    let currentMapInfo = null;
+    let animFrameId = null;         // 标记动画帧ID
+    let lastMarkerPos = null;       // 上次标记位置 [lng, lat]
+
+    // ── 校车 HTML 内容标记 ──
+    function createBusContent(plate) {
+      const el = document.createElement('div');
+      el.className = 'bus-marker';
+      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 32" width="36" height="24">
+        <rect x="2" y="2" width="44" height="20" rx="4" fill="#FF9800" stroke="#E65100" stroke-width="1.5"/>
+        <rect x="6" y="5" width="10" height="7" rx="1.5" fill="#FFF3E0"/>
+        <rect x="19" y="5" width="10" height="7" rx="1.5" fill="#FFF3E0"/>
+        <rect x="32" y="5" width="10" height="7" rx="1.5" fill="#FFF3E0"/>
+        <circle cx="11" cy="25" r="3.5" fill="#333" stroke="#555" stroke-width="1"/>
+        <circle cx="37" cy="25" r="3.5" fill="#333" stroke="#555" stroke-width="1"/>
+      </svg>`;
+      return el;
+    }
+
+    function showMessage(type, text, html) {
+      messageEl.className = `msg show ${type}`;
+      if (html) messageEl.innerHTML = text;
+      else messageEl.textContent = text;
+    }
+
+    function hideMessage() {
+      messageEl.className = 'msg';
+      messageEl.textContent = '';
+      messageEl.innerHTML = '';
+    }
+
+    function fmtDateTime(value) {
+      if (!value) return '暂无';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleString('zh-CN', { hour12: false });
+    }
+
+    function buildStudentQsp() {
+      const qs = `openid=${encodeURIComponent(openid)}`;
+      return currentStudentId ? `${qs}&student_id=${currentStudentId}` : qs;
+    }
+
+    let allStudents = [];
+
+    async function loadStudents() {
+      if (!openid) return;
+      try {
+        const response = await fetch(`/api/wechat/parent-students?openid=${encodeURIComponent(openid)}`);
+        const result = await response.json().catch(() => ({}));
+        if (result.success && result.students?.length) {
+          allStudents = result.students;
+          if (allStudents.length > 1) {
+            studentSwitcherEl.classList.add('show');
+            studentSelectEl.innerHTML = allStudents.map(s =>
+              `<option value="${s.id}"${s.id === currentStudentId ? ' selected' : ''}>${s.name} - ${[s.grade_name, s.class_name].filter(Boolean).join(' / ') || '未分班'}</option>`
+            ).join('');
+            studentSelectEl.addEventListener('change', () => {
+              currentStudentId = Number(studentSelectEl.value) || null;
+              loadParentMap();
+            });
+          }
+          if (!currentStudentId && allStudents.length > 0) {
+            currentStudentId = allStudents[0].id;
+          }
+        }
+      } catch {}
+    }
+
+    function fillStudent(student) {
+      studentNameEl.textContent = student.name || '-';
+      studentGradeClassEl.textContent = [student.grade_name, student.class_name].filter(Boolean).join(' / ') || '年级班级未设置';
+      studentCardNoEl.textContent = `学生卡号：${student.card_no || '-'}`;
+    }
+
+    function fillMapInfo(mapInfo) {
+      sessionNameEl.textContent = mapInfo.has_session ? (mapInfo.session_name || '未设置') : '暂无';
+      busPlateEl.textContent = mapInfo.bus_plate || '暂无';
+      routeNameEl.textContent = mapInfo.route_name || '暂无';
+      locationTimeEl.textContent = fmtDateTime(mapInfo.timestamp);
+      locationStatusEl.textContent = mapInfo.has_location ? '已获取定位' : (mapInfo.message || '暂无定位');
+    }
+
+    async function ensureMap() {
+      if (window.AMap) {
+        if (!map) map = new AMap.Map('map-container', { zoom: 12, center: [116.4074, 39.9042] });
+        return;
+      }
+      if (mapScriptLoaded) return;
+      mapScriptLoaded = true;
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://webapi.amap.com/maps?v=2.0&key=d7dd13a7159db4adbc4028e0309e71bf';
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+      map = new AMap.Map('map-container', { zoom: 12, center: [116.4074, 39.9042] });
+    }
+
+    // 平滑移动标记点（线性插值 + ease-out）
+    function smoothMoveMarker(targetLng, targetLat, duration) {
+      if (!marker) return;
+
+      // 清除上次动画
+      if (animFrameId) {
+        cancelAnimationFrame(animFrameId);
+        animFrameId = null;
+      }
+
+      const startPos = marker.getPosition();
+      const startLng = startPos ? startPos.getLng() : targetLng;
+      const startLat = startPos ? startPos.getLat() : targetLat;
+      const startTime = Date.now();
+      const dur = duration || 2000;
+
+      function step() {
+        const elapsed = Date.now() - startTime;
+        const t = Math.min(elapsed / dur, 1);
+        // ease-out 缓动
+        const eased = 1 - Math.pow(1 - t, 3);
+
+        const lng = startLng + (targetLng - startLng) * eased;
+        const lat = startLat + (targetLat - startLat) * eased;
+        marker.setPosition([lng, lat]);
+
+        if (t < 1) {
+          animFrameId = requestAnimationFrame(step);
+        } else {
+          animFrameId = null;
+        }
+      }
+      animFrameId = requestAnimationFrame(step);
+    }
+
+    async function renderLocation(mapInfo) {
+      await ensureMap();
+      if (!map) return;
+
+      if (!mapInfo.has_location || mapInfo.lng == null || mapInfo.lat == null) {
+        if (marker) {
+          map.remove(marker);
+          marker = null;
+        }
+        if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+        lastMarkerPos = null;
+        map.setCenter([116.4074, 39.9042]);
+        map.setZoom(11);
+        return;
+      }
+
+      const position = [mapInfo.lng, mapInfo.lat];
+      const label = `${mapInfo.session_name || '当前班次'} / ${mapInfo.bus_plate || '车辆'}`;
+      if (marker) {
+        marker.setTitle(label);
+        marker.setLabel({ content: label, direction: 'top' });
+        // 平滑动画移动标记
+        smoothMoveMarker(mapInfo.lng, mapInfo.lat, 2000);
+        lastMarkerPos = position;
+      } else {
+        marker = new AMap.Marker({
+          position,
+          title: label,
+          content: createBusContent(label),
+          offset: new AMap.Pixel(-18, -24),
+          label: { content: label, direction: 'top' }
+        });
+        map.add(marker);
+        lastMarkerPos = position;
+      }
+      map.setCenter(position);
+      map.setZoom(15);
+    }
+
+    function clearFallbackRefreshTimer() {
+      if (fallbackRefreshTimer) {
+        window.clearTimeout(fallbackRefreshTimer);
+        fallbackRefreshTimer = null;
+      }
+    }
+
+    function clearConnectionHintTimer() {
+      if (connectionHintTimer) {
+        window.clearTimeout(connectionHintTimer);
+        connectionHintTimer = null;
+      }
+    }
+
+    function scheduleConnectionHint() {
+      clearConnectionHintTimer();
+      connectionHintTimer = window.setTimeout(() => {
+        if (socket?.connected) return;
+        if (currentMapInfo?.has_session) {
+          showMessage('error', '实时连接暂时中断，正在尝试重新同步位置...');
+        }
+      }, 2000);
+    }
+
+    function scheduleFallbackRefresh() {
+      clearFallbackRefreshTimer();
+      fallbackRefreshTimer = window.setTimeout(() => {
+        loadParentMap({ silent: true, keepMessage: true });
+      }, 10000);
+    }
+
+    function shouldHandleLiveUpdate(payload) {
+      if (!payload || !currentMapInfo?.has_session) return false;
+      if (currentMapInfo.bus_id && Number(payload.busId) !== Number(currentMapInfo.bus_id)) return false;
+      if (payload.sessionId != null && currentMapInfo.session_id && Number(payload.sessionId) !== Number(currentMapInfo.session_id)) return false;
+      return true;
+    }
+
+    async function applyLiveLocation(payload) {
+      if (!shouldHandleLiveUpdate(payload)) return;
+      currentMapInfo = {
+        ...currentMapInfo,
+        has_location: true,
+        message: '',
+        lat: payload.lat,
+        lng: payload.lng,
+        speed: payload.speed ?? null,
+        timestamp: payload.timestamp ?? null
+      };
+      fillMapInfo(currentMapInfo);
+      await renderLocation(currentMapInfo);
+      hideMessage();
+    }
+
+    function connectRealtime() {
+      if (!window.io || socket) return;
+      socket = window.io('/', { transports: ['websocket', 'polling'], query: { openid } });
+      socket.on('connect', () => {
+        clearFallbackRefreshTimer();
+        clearConnectionHintTimer();
+        if (currentMapInfo?.has_location) hideMessage();
+      });
+      socket.on('bus:location', (payload) => {
+        clearFallbackRefreshTimer();
+        clearConnectionHintTimer();
+        applyLiveLocation(payload);
+      });
+      socket.on('disconnect', () => {
+        scheduleConnectionHint();
+        scheduleFallbackRefresh();
+      });
+      socket.on('connect_error', () => {
+        scheduleConnectionHint();
+        scheduleFallbackRefresh();
+      });
+    }
+
+    async function loadParentMap(options = {}) {
+      const silent = options.silent === true;
+      const keepMessage = options.keepMessage === true;
+      if (isRefreshing) return;
+      if (!openid) {
+        loadingEl.classList.add('hidden');
+        showMessage('error', '缺少 openid，请从正确的微信链接进入。');
+        return;
+      }
+
+      isRefreshing = true;
+      refreshBtnEl.disabled = true;
+      refreshBtnEl.textContent = silent ? '同步中...' : '刷新中...';
+      backHomeLinkEl.href = `/parent-home.html?${buildStudentQsp()}`;
+
+      try {
+        if (!silent && !keepMessage) hideMessage();
+        const response = await fetch(`/api/wechat/parent-map?${buildStudentQsp()}`);
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || result.success === false) {
+          loadingEl.classList.add('hidden');
+          if (result.bound === false) {
+            showMessage('error', `${result.message || '当前家长尚未绑定学生。'}<br><a class="btn btn-plain" href="/bind-parent.html?openid=${encodeURIComponent(openid)}">前往绑定</a>`, true);
+          } else {
+            showMessage('error', result.message || '获取实时地图失败，请稍后重试。');
+          }
+          scheduleFallbackRefresh();
+          return;
+        }
+
+        fillStudent(result.student || {});
+        currentMapInfo = result.map || {};
+        fillMapInfo(currentMapInfo);
+        await renderLocation(currentMapInfo);
+        connectRealtime();
+
+        loadingEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+        if (currentMapInfo.message) showMessage('error', currentMapInfo.message);
+        else if (!silent) showMessage('success', '实时地图加载成功');
+        else if (socket?.connected && currentMapInfo.has_location) hideMessage();
+      } catch (error) {
+        loadingEl.classList.add('hidden');
+        showMessage('error', '网络异常，请稍后重试。');
+        scheduleFallbackRefresh();
+      } finally {
+        isRefreshing = false;
+        refreshBtnEl.disabled = false;
+        refreshBtnEl.textContent = '刷新位置';
+      }
+    }
+
+    refreshBtnEl.addEventListener('click', () => loadParentMap());
+
+    async function init() {
+      await loadStudents();
+      await loadParentMap();
+    }
+
+    init();
+
+    window.addEventListener('beforeunload', () => {
+      clearFallbackRefreshTimer();
+      clearConnectionHintTimer();
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+      }
+    });
+  </script>
+</body>
+</html>

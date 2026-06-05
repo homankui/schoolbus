@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>跟车老师</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f7fa; color: #303133; }
+    .wrap { min-height: 100vh; padding: 18px; }
+    .container { max-width: 720px; margin: 0 auto; }
+    .page-title { margin: 0 0 6px; font-size: 24px; font-weight: 700; }
+    .page-desc { margin: 0 0 18px; color: #606266; font-size: 14px; }
+    .card { background: #fff; border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.06); padding: 18px; margin-bottom: 16px; }
+    .card-title { margin: 0 0 14px; font-size: 18px; font-weight: 700; }
+    .summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .summary-item { border-radius: 12px; background: #f7fbff; border: 1px solid #e6f1fc; padding: 14px; text-align: center; }
+    .summary-label { font-size: 12px; color: #909399; margin-bottom: 6px; }
+    .summary-value { font-size: 20px; font-weight: 700; color: #303133; }
+    .tab-bar { display: flex; gap: 0; margin-bottom: 16px; border-radius: 10px; overflow: hidden; border: 1px solid #dcdfe6; }
+    .tab-btn { flex: 1; border: 0; padding: 11px 8px; font-size: 14px; font-weight: 600; cursor: pointer; background: #fff; color: #606266; }
+    .tab-btn.active { background: #409eff; color: #fff; }
+    .field { margin-bottom: 14px; }
+    .label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; }
+    .input, .select { width: 100%; border: 1px solid #dcdfe6; border-radius: 10px; padding: 10px 14px; font-size: 14px; outline: none; }
+    .input:focus, .select:focus { border-color: #409eff; box-shadow: 0 0 0 3px rgba(64,158,255,0.12); }
+    .btn { border: 0; border-radius: 10px; padding: 10px 18px; font-size: 14px; font-weight: 600; color: #fff; background: #409eff; cursor: pointer; }
+    .btn[disabled] { opacity: 0.65; cursor: not-allowed; }
+    .record-item, .leave-item { border-radius: 12px; border: 1px solid #ebeef5; padding: 14px; margin-bottom: 10px; }
+    .record-title, .leave-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .record-meta, .leave-meta { font-size: 13px; color: #606266; line-height: 1.7; }
+    .msg { border-radius: 10px; padding: 12px 14px; font-size: 14px; display: none; margin-bottom: 16px; }
+    .msg.show { display: block; }
+    .msg.success { background: #f0f9eb; color: #67c23a; }
+    .msg.error { background: #fef0f0; color: #f56c6c; }
+    .loading { color: #909399; font-size: 14px; text-align: center; padding: 20px 0; }
+    .hidden { display: none; }
+    @media (max-width: 640px) { .summary-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="container">
+      <h1 class="page-title">跟车老师</h1>
+      <p class="page-desc" id="teacherInfo">加载中...</p>
+
+      <div id="message" class="msg"></div>
+      <div id="loading" class="loading">加载中...</div>
+
+      <div id="content" class="hidden">
+
+        <!-- 统计卡片 -->
+        <div class="card">
+          <div class="card-title">今日概览</div>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div class="summary-label">今日搭乘</div>
+              <div class="summary-value" id="statRides">-</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">所带班次</div>
+              <div class="summary-value" id="statSessions">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab -->
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="records">搭乘记录</button>
+          <button class="tab-btn" data-tab="leaves">请假管理</button>
+        </div>
+
+        <!-- 搭乘记录 Tab -->
+        <div id="tabRecords">
+          <div class="field">
+            <label class="label">班次</label>
+            <select id="recordSession" class="select"></select>
+          </div>
+          <div class="field">
+            <label class="label">日期</label>
+            <input id="recordDate" class="input" type="date" />
+          </div>
+          <button id="loadRecordsBtn" class="btn" style="margin-bottom:12px">查询搭乘记录</button>
+          <div id="recordList"></div>
+        </div>
+
+        <!-- 请假管理 Tab -->
+        <div id="tabLeaves" class="hidden">
+          <div style="border-bottom:1px solid #ebeef5;margin-bottom:14px;padding-bottom:12px">
+            <div class="card-title">提交请假</div>
+            <div class="field">
+              <label class="label">学生ID</label>
+              <input id="leaveStudentId" class="input" type="number" placeholder="请输入学生ID" />
+            </div>
+            <div class="field">
+              <label class="label">请假日期</label>
+              <input id="leaveDate" class="input" type="date" />
+            </div>
+            <div class="field">
+              <label class="label">班次</label>
+              <select id="leaveSession" class="select">
+                <option value="">请选择班次</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="label">请假原因</label>
+              <input id="leaveReason" class="input" placeholder="选填" />
+            </div>
+            <button id="submitLeaveBtn" class="btn">提交请假</button>
+          </div>
+          <div class="card-title">请假记录</div>
+          <div id="leaveList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 无 openid 时自动跳转微信 OAuth 静默授权
+    (function(){
+      var p = new URLSearchParams(window.location.search);
+      if (!p.get('openid') && !p.get('code')) {
+        fetch('/api/wechat/app-id').then(function(r){ return r.json(); }).then(function(d){
+          if (d.appId) {
+            var redirectUri = encodeURIComponent(location.protocol + '//' + location.host + '/api/wechat/oauth-callback');
+            var state = encodeURIComponent(location.pathname + location.search);
+            location.href = 'https://open.weixin.qq.com/connect/oauth2/authorize?appid=' + d.appId + '&redirect_uri=' + redirectUri + '&response_type=code&scope=snsapi_base&state=' + state + '#wechat_redirect';
+          }
+        });
+      }
+    })();
+    const params = new URLSearchParams(window.location.search);
+    const openid = (params.get('openid') || '').trim();
+
+    const messageEl = document.getElementById('message');
+    const loadingEl = document.getElementById('loading');
+    const contentEl = document.getElementById('content');
+    let sessions = [];
+
+    function showMessage(type, text) {
+      messageEl.className = `msg show ${type}`;
+      messageEl.textContent = text;
+    }
+    function hideMessage() { messageEl.className = 'msg'; }
+
+    function fmtDateTime(value) {
+      if (!value) return '-';
+      const d = new Date(value);
+      return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString('zh-CN', { hour12: false });
+    }
+
+    async function loadHome() {
+      try {
+        const resp = await fetch(`/api/wechat/escort-home?openid=${encodeURIComponent(openid)}`);
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.success) {
+          showMessage('error', data.message || '加载失败');
+          loadingEl.classList.add('hidden');
+          return;
+        }
+
+        sessions = data.sessions || [];
+        document.getElementById('teacherInfo').textContent =
+          `${data.teacher.school_name} · ${data.teacher.name}`;
+        document.getElementById('statRides').textContent = data.today_rides;
+        document.getElementById('statSessions').textContent = data.sessions.length;
+
+        document.getElementById('recordDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('leaveDate').value = new Date().toISOString().split('T')[0];
+
+        const sessionOpts = sessions.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        document.getElementById('recordSession').innerHTML = `<option value="">请选择班次</option>${sessionOpts}`;
+        document.getElementById('leaveSession').innerHTML = `<option value="">请选择班次</option>` +
+          sessions.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+
+        loadingEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+      } catch (e) {
+        showMessage('error', '网络异常');
+        loadingEl.classList.add('hidden');
+      }
+    }
+
+    // Tab 切换
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tabRecords').classList.toggle('hidden', btn.dataset.tab !== 'records');
+        document.getElementById('tabLeaves').classList.toggle('hidden', btn.dataset.tab !== 'leaves');
+      });
+    });
+
+    // 搭乘记录
+    document.getElementById('loadRecordsBtn').addEventListener('click', async () => {
+      const session_id = document.getElementById('recordSession').value;
+      const date = document.getElementById('recordDate').value;
+      if (!session_id) { showMessage('error', '请选择班次'); return; }
+      const resp = await fetch(`/api/wechat/escort-ride-records?openid=${encodeURIComponent(openid)}&session_id=${session_id}&date=${encodeURIComponent(date)}`);
+      const data = await resp.json().catch(() => ({}));
+      const el = document.getElementById('recordList');
+      if (!data.success) { el.innerHTML = '<p style="color:#909399">加载失败</p>'; return; }
+      if (!data.records.length) { el.innerHTML = '<p style="color:#909399">暂无搭乘记录</p>'; return; }
+      el.innerHTML = data.records.map(r => `<div class="record-item">
+        <div class="record-title">${r.student_name} (${r.card_no}) · ${r.grade_name}${r.class_name}</div>
+        <div class="record-meta">上车：${fmtDateTime(r.board_time)} · ${r.board_stop}</div>
+        <div class="record-meta">下车：${fmtDateTime(r.alight_time)} · ${r.alight_stop}</div>
+        <div class="record-meta">车辆：${r.bus_plate || '-'}</div>
+      </div>`).join('');
+    });
+
+    // 请假列表
+    async function loadLeaveList() {
+      const date = document.getElementById('leaveDate').value;
+      const resp = await fetch(`/api/wechat/escort-leave?openid=${encodeURIComponent(openid)}&date=${encodeURIComponent(date)}`);
+      const data = await resp.json().catch(() => ({}));
+      const el = document.getElementById('leaveList');
+      if (!data.success) { el.innerHTML = '<p style="color:#909399">加载失败</p>'; return; }
+      if (!data.leaves.length) { el.innerHTML = '<p style="color:#909399">暂无请假记录</p>'; return; }
+      el.innerHTML = data.leaves.map(l => `<div class="leave-item">
+        <div class="leave-title">${l.student_name} (${l.card_no}) · ${l.grade_name}${l.class_name}</div>
+        <div class="leave-meta">班次：${l.session_name} | 日期：${l.leave_date}</div>
+        <div class="leave-meta">原因：${l.reason || '无'} | 状态：${l.status === 'active' ? '生效中' : l.status}</div>
+      </div>`).join('');
+    }
+
+    document.getElementById('leaveDate').addEventListener('change', loadLeaveList);
+
+    // 提交请假
+    document.getElementById('submitLeaveBtn').addEventListener('click', async () => {
+      const student_id = Number(document.getElementById('leaveStudentId').value) || 0;
+      const leave_date = document.getElementById('leaveDate').value;
+      const session_name = document.getElementById('leaveSession').value;
+      const reason = document.getElementById('leaveReason').value.trim();
+      if (!student_id || !leave_date || !session_name) {
+        showMessage('error', '请完整填写学生ID、日期和班次。');
+        return;
+      }
+      const resp = await fetch('/api/wechat/escort-leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ openid, student_id, leave_date, session_name, reason })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (data.success) {
+        showMessage('success', data.message || '提交成功');
+        loadLeaveList();
+      } else {
+        showMessage('error', data.message || '提交失败');
+      }
+    });
+
+    loadHome();
+  </script>
+</body>
+</html>

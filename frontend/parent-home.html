@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>家长首页</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f7fa;
+      color: #303133;
+    }
+    .wrap {
+      min-height: 100vh;
+      padding: 18px;
+    }
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .page-title {
+      margin: 0 0 14px;
+      font-size: 24px;
+      font-weight: 700;
+      color: #303133;
+    }
+    .page-desc {
+      margin: 0 0 18px;
+      color: #606266;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      margin: 0 0 14px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #303133;
+    }
+    .student-head {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+    .avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 12px;
+      object-fit: cover;
+      background: #eef3f8;
+      border: 1px solid #ebeef5;
+    }
+    .avatar.placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #909399;
+      font-size: 12px;
+    }
+    .student-name {
+      margin: 0 0 8px;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .meta {
+      margin: 4px 0;
+      font-size: 14px;
+      color: #606266;
+      line-height: 1.6;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .summary-item {
+      border-radius: 12px;
+      background: #f7fbff;
+      border: 1px solid #e6f1fc;
+      padding: 14px;
+    }
+    .summary-label {
+      font-size: 12px;
+      color: #909399;
+      margin-bottom: 6px;
+    }
+    .summary-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #303133;
+      line-height: 1.5;
+    }
+    .record-list, .feature-list, .notice-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .record-item, .feature-item, .notice-item {
+      border-radius: 12px;
+      border: 1px solid #ebeef5;
+      padding: 14px;
+      background: #fff;
+    }
+    .record-title, .feature-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #303133;
+      margin-bottom: 6px;
+    }
+    .record-meta, .notice-meta, .feature-desc {
+      font-size: 13px;
+      color: #606266;
+      line-height: 1.7;
+    }
+    .feature-item {
+      background: #fafafa;
+    }
+    .msg {
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      display: none;
+      margin-bottom: 16px;
+    }
+    .msg.show { display: block; }
+    .msg.success {
+      background: #f0f9eb;
+      color: #67c23a;
+    }
+    .msg.error {
+      background: #fef0f0;
+      color: #f56c6c;
+    }
+    .loading {
+      color: #909399;
+      font-size: 14px;
+      text-align: center;
+      padding: 20px 0;
+    }
+    .hidden { display: none; }
+    .student-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .student-bar .select {
+      flex: 1;
+      min-width: 180px;
+      border: 1px solid #dcdfe6;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 15px;
+      background: #fff;
+      outline: none;
+    }
+    .student-bar .select:focus {
+      border-color: #409eff;
+    }
+    .student-bar .bind-btn {
+      flex-shrink: 0;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid #409eff;
+      background: #fff;
+      color: #409eff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .student-bar .bind-btn:hover {
+      background: #ecf5ff;
+    }
+    .student-bar .bind-count {
+      flex-shrink: 0;
+      font-size: 13px;
+      color: #909399;
+    }
+    .student-bar.hidden { display: none; }
+    .student-bar .label {
+      flex-shrink: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #303133;
+    }
+    .link-btn {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: #409eff;
+      color: #fff;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    @media (max-width: 640px) {
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+      .student-head {
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="container">
+      <h1 class="page-title">家长首页</h1>
+      <p class="page-desc">查看学生基础信息、最近乘车记录、切换学生及绑定管理。</p>
+
+      <div id="studentBar" class="student-bar hidden">
+        <span class="label">当前学生</span>
+        <select id="studentSelect" class="select"></select>
+        <span id="bindCount" class="bind-count"></span>
+        <a id="bindBtn" class="bind-btn" href="#">绑定学生</a>
+      </div>
+
+      <div id="message" class="msg"></div>
+      <div id="loading" class="loading">加载中...</div>
+
+      <div id="content" class="hidden">
+        <div class="card">
+          <div class="card-title">学生信息</div>
+          <div class="student-head">
+            <img id="studentPhoto" class="avatar hidden" alt="学生照片" />
+            <div id="studentPhotoPlaceholder" class="avatar placeholder">暂无照片</div>
+            <div>
+              <h2 id="studentName" class="student-name">-</h2>
+              <div id="studentGradeClass" class="meta">-</div>
+              <div id="studentCardNo" class="meta">-</div>
+              <div id="studentStops" class="meta">-</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">今日乘车状态</div>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div class="summary-label">最近上车时间</div>
+              <div id="latestBoardTime" class="summary-value">暂无记录</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">最近上车站点</div>
+              <div id="latestBoardStop" class="summary-value">暂无记录</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">最近乘车记录</div>
+          <div id="recordList" class="record-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">最新通知</div>
+          <div id="noticeList" class="notice-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">更多功能</div>
+          <div class="feature-list">
+            <div class="feature-item">
+              <div class="feature-title">实时地图</div>
+              <div class="feature-desc">查看校车当前位置与最新定位状态。</div>
+              <a id="mapEntryLink" class="link-btn" href="#">查看地图</a>
+            </div>
+            <div class="feature-item">
+              <div class="feature-title">乘车请假</div>
+              <div class="feature-desc">家长可按日期和班次提交请假申请。</div>
+              <a id="leaveEntryLink" class="link-btn" href="#">立即请假</a>
+            </div>
+            <div class="feature-item">
+              <div class="feature-title">人脸采集</div>
+              <div class="feature-desc">家长可上传学生照片，辅助后续人脸采集与管理。</div>
+              <a id="faceEntryLink" class="link-btn" href="#">立即上传</a>
+            </div>
+            <div class="feature-item">
+              <div class="feature-title">消息通知</div>
+              <div class="feature-desc">后续支持查看更多历史通知与提醒详情。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 无 openid 时自动跳转微信 OAuth 静默授权
+    (function(){
+      var p = new URLSearchParams(window.location.search);
+      if (!p.get('openid') && !p.get('code')) {
+        fetch('/api/wechat/app-id').then(function(r){ return r.json(); }).then(function(d){
+          if (d.appId) {
+            var redirectUri = encodeURIComponent(location.protocol + '//' + location.host + '/api/wechat/oauth-callback');
+            var state = encodeURIComponent(location.pathname + location.search);
+            location.href = 'https://open.weixin.qq.com/connect/oauth2/authorize?appid=' + d.appId + '&redirect_uri=' + redirectUri + '&response_type=code&scope=snsapi_base&state=' + state + '#wechat_redirect';
+          }
+        });
+      }
+    })();
+    const params = new URLSearchParams(window.location.search);
+    const openid = (params.get('openid') || '').trim();
+    let currentStudentId = Number(params.get('student_id')) || null;
+
+    const messageEl = document.getElementById('message');
+    const loadingEl = document.getElementById('loading');
+    const contentEl = document.getElementById('content');
+    const studentBarEl = document.getElementById('studentBar');
+    const studentSelectEl = document.getElementById('studentSelect');
+    const bindBtnEl = document.getElementById('bindBtn');
+    const bindCountEl = document.getElementById('bindCount');
+    const studentPhotoEl = document.getElementById('studentPhoto');
+    const studentPhotoPlaceholderEl = document.getElementById('studentPhotoPlaceholder');
+    const studentNameEl = document.getElementById('studentName');
+    const studentGradeClassEl = document.getElementById('studentGradeClass');
+    const studentCardNoEl = document.getElementById('studentCardNo');
+    const studentStopsEl = document.getElementById('studentStops');
+    const latestBoardTimeEl = document.getElementById('latestBoardTime');
+    const latestBoardStopEl = document.getElementById('latestBoardStop');
+    const recordListEl = document.getElementById('recordList');
+    const noticeListEl = document.getElementById('noticeList');
+    const leaveEntryLinkEl = document.getElementById('leaveEntryLink');
+    const faceEntryLinkEl = document.getElementById('faceEntryLink');
+    const mapEntryLinkEl = document.getElementById('mapEntryLink');
+
+    let allStudents = [];
+
+    function showMessage(type, text, html) {
+      messageEl.className = `msg show ${type}`;
+      if (html) messageEl.innerHTML = text;
+      else messageEl.textContent = text;
+    }
+
+    function hideMessage() {
+      messageEl.className = 'msg';
+      messageEl.textContent = '';
+      messageEl.innerHTML = '';
+    }
+
+    function fmtDateTime(value) {
+      if (!value) return '暂无记录';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleString('zh-CN', { hour12: false });
+    }
+
+    function fillStudent(student) {
+      studentNameEl.textContent = student.name || '-';
+      studentGradeClassEl.textContent = [student.grade_name, student.class_name].filter(Boolean).join(' / ') || '年级班级未设置';
+      studentCardNoEl.textContent = `学生卡号：${student.card_no || '-'}`;
+      studentStopsEl.textContent = `默认站点：上车 ${student.board_stop_name || '-'} / 下车 ${student.alight_stop_name || '-'}`;
+
+      if (student.face_photo_url) {
+        studentPhotoEl.src = /^https?:\/\//i.test(student.face_photo_url)
+          ? student.face_photo_url
+          : `${window.location.origin}${student.face_photo_url.startsWith('/') ? student.face_photo_url : `/${student.face_photo_url}`}`;
+        studentPhotoEl.classList.remove('hidden');
+        studentPhotoPlaceholderEl.classList.add('hidden');
+      } else {
+        studentPhotoEl.classList.add('hidden');
+        studentPhotoPlaceholderEl.classList.remove('hidden');
+      }
+    }
+
+    function fillLatestRecord(latestRecord) {
+      latestBoardTimeEl.textContent = latestRecord?.board_time ? fmtDateTime(latestRecord.board_time) : '暂无记录';
+      latestBoardStopEl.textContent = latestRecord?.board_stop || '暂无记录';
+    }
+
+    function fillRecords(records) {
+      if (!Array.isArray(records) || !records.length) {
+        recordListEl.innerHTML = '<div class="record-item"><div class="record-meta">暂无乘车记录</div></div>';
+        return;
+      }
+
+      recordListEl.innerHTML = records.map(item => `
+        <div class="record-item">
+          <div class="record-title">${item.board_stop || '未知站点'} 上车</div>
+          <div class="record-meta">上车时间：${fmtDateTime(item.board_time)}</div>
+          <div class="record-meta">车辆：${item.bus_plate || '未记录'}</div>
+        </div>
+      `).join('');
+    }
+
+    function fillNotifications(notifications) {
+      if (!Array.isArray(notifications) || !notifications.length) {
+        noticeListEl.innerHTML = '<div class="notice-item"><div class="notice-meta">暂无通知</div></div>';
+        return;
+      }
+
+      noticeListEl.innerHTML = notifications.map(item => `
+        <div class="notice-item">
+          <div class="record-title">${item.type || '通知'}</div>
+          <div class="notice-meta">${item.content || '-'}</div>
+          <div class="notice-meta">时间：${fmtDateTime(item.sent_at)}</div>
+        </div>
+      `).join('');
+    }
+
+    function buildStudentQsp() {
+      const qs = `openid=${encodeURIComponent(openid)}`;
+      return currentStudentId ? `${qs}&student_id=${currentStudentId}` : qs;
+    }
+
+    function buildSubPageLinks() {
+      const qsp = buildStudentQsp();
+      leaveEntryLinkEl.href = `/parent-leave.html?${qsp}`;
+      faceEntryLinkEl.href = `/parent-face.html?${qsp}`;
+      mapEntryLinkEl.href = `/parent-map.html?${qsp}`;
+    }
+
+    async function loadStudents() {
+      if (!openid) return;
+      try {
+        const response = await fetch(`/api/wechat/parent-students?openid=${encodeURIComponent(openid)}`);
+        const result = await response.json().catch(() => ({}));
+        if (result.success && result.students?.length) {
+          allStudents = result.students;
+          if (!currentStudentId && allStudents.length > 0) {
+            currentStudentId = allStudents[0].id;
+          }
+        }
+      } catch {}
+
+      // Always show student bar with switcher
+      studentBarEl.classList.remove('hidden');
+      bindBtnEl.href = `/bind-parent.html?openid=${encodeURIComponent(openid)}`;
+
+      if (allStudents.length > 0) {
+        studentSelectEl.innerHTML = allStudents.map(s =>
+          `<option value="${s.id}"${s.id === currentStudentId ? ' selected' : ''}>${s.name} - ${[s.grade_name, s.class_name].filter(Boolean).join(' / ') || '未分班'}</option>`
+        ).join('');
+        bindCountEl.textContent = `共${allStudents.length}人`;
+        studentSelectEl.style.display = '';
+        studentSelectEl.addEventListener('change', () => {
+          currentStudentId = Number(studentSelectEl.value) || null;
+          buildSubPageLinks();
+          loadParentHome();
+        });
+      } else {
+        studentSelectEl.style.display = 'none';
+        bindCountEl.textContent = '暂无绑定';
+      }
+    }
+
+    async function loadParentHome() {
+      if (!openid) {
+        loadingEl.classList.add('hidden');
+        showMessage('error', '缺少 openid，请从正确的微信链接进入。');
+        return;
+      }
+
+      try {
+        hideMessage();
+        buildSubPageLinks();
+        const qs = buildStudentQsp();
+        const response = await fetch(`/api/wechat/parent-home?${qs}`);
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || result.success === false) {
+          loadingEl.classList.add('hidden');
+          if (result.bound === false) {
+            showMessage('error', result.message || '当前家长尚未绑定学生，请先完成绑定。', false);
+            contentEl.classList.remove('hidden');
+          } else {
+            showMessage('error', result.message || '获取家长首页失败，请稍后重试。');
+          }
+          return;
+        }
+
+        fillStudent(result.student || {});
+        fillLatestRecord(result.latest_record || null);
+        fillRecords(result.records || []);
+        fillNotifications(result.notifications || []);
+
+        loadingEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+        showMessage('success', '家长首页加载成功');
+      } catch (error) {
+        loadingEl.classList.add('hidden');
+        showMessage('error', '网络异常，请稍后重试。');
+      }
+    }
+
+    async function init() {
+      await loadStudents();
+      await loadParentHome();
+    }
+
+    init();
+  </script>
+</body>
+</html>

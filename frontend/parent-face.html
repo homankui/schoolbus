@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>人脸采集</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f7fa;
+      color: #303133;
+    }
+    .wrap { min-height: 100vh; padding: 18px; }
+    .container { max-width: 720px; margin: 0 auto; }
+    .page-title { margin: 0 0 10px; font-size: 24px; font-weight: 700; }
+    .page-desc { margin: 0 0 18px; color: #606266; font-size: 14px; line-height: 1.6; }
+    .card {
+      background: #fff; border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      padding: 18px; margin-bottom: 16px;
+    }
+    .card-title { margin: 0 0 14px; font-size: 18px; font-weight: 700; color: #303133; }
+    .meta { margin: 6px 0; font-size: 14px; color: #606266; line-height: 1.6; }
+    .msg {
+      border-radius: 10px; padding: 12px 14px; font-size: 14px;
+      line-height: 1.6; display: none; margin-bottom: 16px;
+    }
+    .msg.show { display: block; }
+    .msg.success { background: #f0f9eb; color: #67c23a; }
+    .msg.error { background: #fef0f0; color: #f56c6c; }
+    .loading { color: #909399; font-size: 14px; text-align: center; padding: 20px 0; }
+    .hidden { display: none; }
+    .photo-box {
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+    .avatar {
+      width: 180px; height: 180px; border-radius: 16px;
+      object-fit: cover; background: #eef3f8; border: 1px solid #ebeef5;
+    }
+    .avatar.placeholder {
+      display: flex; align-items: center; justify-content: center;
+      color: #909399; font-size: 14px; text-align: center; padding: 12px;
+    }
+    .status-tag {
+      display: inline-block; padding: 4px 10px; border-radius: 999px;
+      font-size: 12px; font-weight: 600; background: #ecf5ff; color: #409eff;
+    }
+    .mode-tabs {
+      display: flex; gap: 0; margin-bottom: 14px; border-radius: 10px;
+      overflow: hidden; border: 1px solid #dcdfe6;
+    }
+    .mode-tab {
+      flex: 1; text-align: center; padding: 10px 0; font-size: 14px; font-weight: 600;
+      cursor: pointer; background: #fff; color: #606266; border: 0; outline: none;
+    }
+    .mode-tab.active { background: #409eff; color: #fff; }
+
+    .camera-wrap {
+      width: 100%; max-width: 360px; margin: 0 auto;
+      border-radius: 16px; overflow: hidden; background: #000;
+    }
+    .camera-wrap video {
+      display: block; width: 100%; border-radius: 16px;
+    }
+    .field { margin-bottom: 16px; }
+    .label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+    .input {
+      width: 100%; border: 1px solid #dcdfe6; border-radius: 10px;
+      padding: 12px 14px; font-size: 15px; background: #fff;
+    }
+    .hint { margin: 8px 0 0; color: #909399; font-size: 12px; line-height: 1.6; }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .btn {
+      border: 0; border-radius: 10px; padding: 12px 16px;
+      font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+    .btn-primary { background: #409eff; color: #fff; }
+    .btn-success { background: #67c23a; color: #fff; }
+    .btn-plain {
+      background: #fff; color: #409eff; border: 1px solid #b3d8ff;
+      text-decoration: none; display: inline-flex; align-items: center;
+      justify-content: center;
+    }
+    .btn[disabled] { opacity: 0.65; cursor: not-allowed; }
+
+    .preview-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; z-index: 999;
+    }
+    .preview-overlay.hidden { display: none; }
+    .preview-overlay img {
+      max-width: 90vw; max-height: 60vh; border-radius: 16px;
+    }
+    .preview-actions { margin-top: 20px; display: flex; gap: 16px; }
+
+    .student-switcher { margin-bottom: 16px; display: none; }
+    .student-switcher.show { display: block; }
+    .student-switcher .label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #606266; }
+    .student-switcher .select {
+      width: 100%; max-width: 320px; border: 1px solid #dcdfe6;
+      border-radius: 10px; padding: 10px 12px; font-size: 15px;
+      background: #fff; outline: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="container">
+      <h1 class="page-title">人脸采集</h1>
+      <p class="page-desc">上传学生正脸照片，便于后续人脸识别与管理。建议使用清晰、单人、无遮挡的照片。</p>
+
+      <div id="studentSwitcher" class="student-switcher">
+        <label class="label" for="studentSelect">切换学生</label>
+        <select id="studentSelect" class="select"></select>
+      </div>
+
+      <div id="message" class="msg"></div>
+      <div id="loading" class="loading">加载中...</div>
+
+      <div id="content" class="hidden">
+        <div class="card">
+          <div class="card-title">学生信息</div>
+          <div id="studentName" class="meta">-</div>
+          <div id="studentGradeClass" class="meta">-</div>
+          <div id="studentCardNo" class="meta">-</div>
+          <div id="studentFaceStatus" class="meta">当前状态：-</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">当前照片</div>
+          <div class="photo-box">
+            <img id="studentPhoto" class="avatar hidden" alt="学生照片" />
+            <div id="studentPhotoPlaceholder" class="avatar placeholder">暂无照片</div>
+            <span id="statusTag" class="status-tag">未录入</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">上传新照片</div>
+
+          <div class="mode-tabs">
+            <button class="mode-tab active" data-mode="camera" id="tabCamera">拍照上传</button>
+            <button class="mode-tab" data-mode="file" id="tabFile">本地照片</button>
+          </div>
+
+          <!-- 拍照模式 -->
+          <div id="cameraMode">
+            <div class="camera-wrap">
+              <video id="cameraVideo" autoplay playsinline muted></video>
+            </div>
+            <div class="actions" style="margin-top:12px">
+              <button id="captureBtn" class="btn btn-primary" disabled>开启摄像头</button>
+            </div>
+          </div>
+
+          <!-- 本地照片模式 -->
+          <div id="fileMode" class="hidden">
+            <form id="faceForm">
+              <div class="field">
+                <label class="label" for="photoInput">选择照片</label>
+                <input id="photoInput" class="input" type="file" accept="image/jpeg,image/png,image/webp" />
+                <p class="hint">支持 JPG、PNG、WEBP，单张不超过 5MB。</p>
+              </div>
+              <div class="actions">
+                <button id="submitBtn" class="btn btn-primary" type="submit">上传照片</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="actions">
+          <a id="backHomeLink" class="btn btn-plain" href="#">返回首页</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 拍照预览弹窗 -->
+  <div id="previewOverlay" class="preview-overlay hidden">
+    <img id="previewImage" alt="预览" />
+    <div class="preview-actions">
+      <button id="reCaptureBtn" class="btn btn-plain">重新拍照</button>
+      <button id="confirmUploadBtn" class="btn btn-success">确认上传</button>
+    </div>
+  </div>
+
+  <script>
+    // 无 openid 时自动跳转微信 OAuth 静默授权
+    (function(){
+      var p = new URLSearchParams(window.location.search);
+      if (!p.get('openid') && !p.get('code')) {
+        fetch('/api/wechat/app-id').then(function(r){ return r.json(); }).then(function(d){
+          if (d.appId) {
+            var redirectUri = encodeURIComponent(location.protocol + '//' + location.host + '/api/wechat/oauth-callback');
+            var state = encodeURIComponent(location.pathname + location.search);
+            location.href = 'https://open.weixin.qq.com/connect/oauth2/authorize?appid=' + d.appId + '&redirect_uri=' + redirectUri + '&response_type=code&scope=snsapi_base&state=' + state + '#wechat_redirect';
+          }
+        });
+      }
+    })();
+    const params = new URLSearchParams(window.location.search);
+    const openid = (params.get('openid') || '').trim();
+    let currentStudentId = Number(params.get('student_id')) || null;
+
+    const $ = id => document.getElementById(id);
+    const studentSwitcherEl = $('studentSwitcher');
+    const studentSelectEl = $('studentSelect');
+    const messageEl = $('message');
+    const loadingEl = $('loading');
+    const contentEl = $('content');
+    const studentNameEl = $('studentName');
+    const studentGradeClassEl = $('studentGradeClass');
+    const studentCardNoEl = $('studentCardNo');
+    const studentFaceStatusEl = $('studentFaceStatus');
+    const studentPhotoEl = $('studentPhoto');
+    const studentPhotoPlaceholderEl = $('studentPhotoPlaceholder');
+    const statusTagEl = $('statusTag');
+    const faceFormEl = $('faceForm');
+    const photoInputEl = $('photoInput');
+    const submitBtnEl = $('submitBtn');
+    const backHomeLinkEl = $('backHomeLink');
+    const tabCameraEl = $('tabCamera');
+    const tabFileEl = $('tabFile');
+    const cameraModeEl = $('cameraMode');
+    const fileModeEl = $('fileMode');
+    const cameraVideoEl = $('cameraVideo');
+    const captureBtnEl = $('captureBtn');
+    const previewOverlayEl = $('previewOverlay');
+    const previewImageEl = $('previewImage');
+    const reCaptureBtnEl = $('reCaptureBtn');
+    const confirmUploadBtnEl = $('confirmUploadBtn');
+
+    let cameraStream = null;
+    let capturedBlob = null;
+
+    function showMessage(type, text) {
+      messageEl.className = `msg show ${type}`;
+      messageEl.textContent = text;
+    }
+    function hideMessage() { messageEl.className = 'msg'; }
+
+    function buildStudentQsp() {
+      const qs = `openid=${encodeURIComponent(openid)}`;
+      return currentStudentId ? `${qs}&student_id=${currentStudentId}` : qs;
+    }
+
+    let allStudents = [];
+    async function loadStudents() {
+      if (!openid) return;
+      try {
+        const resp = await fetch(`/api/wechat/parent-students?openid=${encodeURIComponent(openid)}`);
+        const result = await resp.json().catch(() => ({}));
+        if (result.success && result.students?.length) {
+          allStudents = result.students;
+          if (allStudents.length > 1) {
+            studentSwitcherEl.classList.add('show');
+            studentSelectEl.innerHTML = allStudents.map(s =>
+              `<option value="${s.id}"${s.id === currentStudentId ? ' selected' : ''}>${s.name} - ${[s.grade_name, s.class_name].filter(Boolean).join(' / ') || '未分班'}</option>`
+            ).join('');
+            studentSelectEl.addEventListener('change', () => {
+              currentStudentId = Number(studentSelectEl.value) || null;
+              loadParentFace();
+            });
+          }
+          if (!currentStudentId && allStudents.length > 0) currentStudentId = allStudents[0].id;
+        }
+      } catch {}
+    }
+
+    function resolvePhotoUrl(url) {
+      if (!url) return '';
+      return /^https?:\/\//i.test(url)
+        ? url : `${window.location.origin}${url.startsWith('/') ? url : `/${url}`}`;
+    }
+
+    function fillStudent(student) {
+      studentNameEl.textContent = student.name || '-';
+      studentGradeClassEl.textContent = [student.grade_name, student.class_name].filter(Boolean).join(' / ') || '年级班级未设置';
+      studentCardNoEl.textContent = `学生卡号：${student.card_no || '-'}`;
+      studentFaceStatusEl.textContent = `当前状态：${student.face_status_label || '未录入'}`;
+      statusTagEl.textContent = student.face_status_label || '未录入';
+
+      const photoUrl = resolvePhotoUrl(student.face_photo_url || '');
+      if (photoUrl) {
+        studentPhotoEl.src = photoUrl;
+        studentPhotoEl.classList.remove('hidden');
+        studentPhotoPlaceholderEl.classList.add('hidden');
+      } else {
+        studentPhotoEl.removeAttribute('src');
+        studentPhotoEl.classList.add('hidden');
+        studentPhotoPlaceholderEl.classList.remove('hidden');
+      }
+    }
+
+    async function loadParentFace() {
+      if (!openid) {
+        loadingEl.classList.add('hidden');
+        showMessage('error', '缺少 openid，请从正确的微信链接进入。');
+        return;
+      }
+      backHomeLinkEl.href = `/parent-home.html?${buildStudentQsp()}`;
+      try {
+        hideMessage();
+        const resp = await fetch(`/api/wechat/parent-face?${buildStudentQsp()}`);
+        const result = await resp.json().catch(() => ({}));
+        if (!resp.ok || result.success === false) {
+          loadingEl.classList.add('hidden');
+          showMessage('error', result.message || '获取人脸采集信息失败。');
+          if (result.bound === false) {
+            messageEl.innerHTML = `${result.message || '当前家长尚未绑定学生。'}<br><a class="btn btn-plain" href="/bind-parent.html?openid=${encodeURIComponent(openid)}">前往绑定</a>`;
+            messageEl.className = 'msg show error';
+          }
+          return;
+        }
+        fillStudent(result.student || {});
+        loadingEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+      } catch {
+        loadingEl.classList.add('hidden');
+        showMessage('error', '网络异常，请稍后重试。');
+      }
+    }
+
+    // ========== 模式切换 ==========
+    function switchMode(mode) {
+      if (mode === 'camera') {
+        tabCameraEl.classList.add('active');
+        tabFileEl.classList.remove('active');
+        cameraModeEl.classList.remove('hidden');
+        fileModeEl.classList.add('hidden');
+        startCamera();
+      } else {
+        tabFileEl.classList.add('active');
+        tabCameraEl.classList.remove('active');
+        fileModeEl.classList.remove('hidden');
+        cameraModeEl.classList.add('hidden');
+        stopCamera();
+      }
+    }
+
+    tabCameraEl.addEventListener('click', () => switchMode('camera'));
+    tabFileEl.addEventListener('click', () => switchMode('file'));
+
+    // ========== 摄像头 ==========
+    async function startCamera() {
+      captureBtnEl.disabled = true;
+      captureBtnEl.textContent = '开启摄像头中...';
+      try {
+        if (!cameraStream) {
+          cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } },
+            audio: false
+          });
+          cameraVideoEl.srcObject = cameraStream;
+          await cameraVideoEl.play();
+        }
+        captureBtnEl.disabled = false;
+        captureBtnEl.textContent = '拍照';
+        hideMessage();
+      } catch (err) {
+        captureBtnEl.textContent = '无法访问摄像头';
+        showMessage('error', '无法访问摄像头，请确认已授权相机权限，或切换到"本地照片"上传。');
+        console.error('camera error:', err);
+      }
+    }
+
+    function stopCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+        cameraVideoEl.srcObject = null;
+      }
+      captureBtnEl.textContent = '开启摄像头';
+      captureBtnEl.disabled = true;
+    }
+
+    // ========== 拍照 ==========
+    captureBtnEl.addEventListener('click', () => {
+      if (!cameraStream) {
+        startCamera();
+        return;
+      }
+      const video = cameraVideoEl;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 720;
+      canvas.height = video.videoHeight || 720;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(blob => {
+        if (!blob) { showMessage('error', '拍照失败，请重试。'); return; }
+        capturedBlob = blob;
+        previewImageEl.src = URL.createObjectURL(blob);
+        previewOverlayEl.classList.remove('hidden');
+      }, 'image/jpeg', 0.9);
+    });
+
+    // ========== 预览弹窗操作 ==========
+    reCaptureBtnEl.addEventListener('click', () => {
+      previewOverlayEl.classList.add('hidden');
+      if (previewImageEl.src) {
+        URL.revokeObjectURL(previewImageEl.src);
+        previewImageEl.removeAttribute('src');
+      }
+      capturedBlob = null;
+    });
+
+    confirmUploadBtnEl.addEventListener('click', async () => {
+      if (!capturedBlob) return;
+      confirmUploadBtnEl.disabled = true;
+      confirmUploadBtnEl.textContent = '上传中...';
+      await uploadBlob(capturedBlob);
+      confirmUploadBtnEl.disabled = false;
+      confirmUploadBtnEl.textContent = '确认上传';
+      previewOverlayEl.classList.add('hidden');
+      if (previewImageEl.src) {
+        URL.revokeObjectURL(previewImageEl.src);
+        previewImageEl.removeAttribute('src');
+      }
+      capturedBlob = null;
+    });
+
+    // ========== 上传 ==========
+    async function uploadBlob(blob) {
+      if (!openid) { showMessage('error', '缺少 openid。'); return; }
+      const formData = new FormData();
+      formData.append('openid', openid);
+      if (currentStudentId) formData.append('student_id', currentStudentId);
+      formData.append('photo', blob, 'camera.jpg');
+
+      hideMessage();
+      try {
+        const resp = await fetch('/api/wechat/parent-face', { method: 'POST', body: formData });
+        const result = await resp.json().catch(() => ({}));
+        if (!resp.ok || result.success === false) {
+          showMessage('error', result.message || '上传失败。');
+          return;
+        }
+        fillStudent(result.student || {});
+        showMessage('success', result.message || '上传成功。');
+      } catch {
+        showMessage('error', '网络异常。');
+      }
+    }
+
+    // ========== 本地照片上传 ==========
+    faceFormEl.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const file = photoInputEl.files && photoInputEl.files[0];
+      if (!openid) { showMessage('error', '缺少 openid。'); return; }
+      if (!file) { showMessage('error', '请先选择一张照片。'); return; }
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes((file.type || '').toLowerCase())) {
+        showMessage('error', '仅支持 JPG、PNG、WEBP。'); return;
+      }
+      if (file.size > 5 * 1024 * 1024) { showMessage('error', '图片不能超过 5MB。'); return; }
+
+      submitBtnEl.disabled = true;
+      submitBtnEl.textContent = '上传中...';
+      hideMessage();
+
+      try {
+        const formData = new FormData();
+        formData.append('openid', openid);
+        if (currentStudentId) formData.append('student_id', currentStudentId);
+        formData.append('photo', file);
+        const resp = await fetch('/api/wechat/parent-face', { method: 'POST', body: formData });
+        const result = await resp.json().catch(() => ({}));
+        if (!resp.ok || result.success === false) {
+          showMessage('error', result.message || '上传失败。'); return;
+        }
+        fillStudent(result.student || {});
+        photoInputEl.value = '';
+        showMessage('success', result.message || '上传成功。');
+      } catch {
+        showMessage('error', '网络异常。');
+      } finally {
+        submitBtnEl.disabled = false;
+        submitBtnEl.textContent = '上传照片';
+      }
+    });
+
+    // ========== 页面关闭时释放摄像头 ==========
+    window.addEventListener('beforeunload', () => stopCamera());
+
+    async function init() {
+      await loadStudents();
+      await loadParentFace();
+    }
+    init();
+  </script>
+</body>
+</html>
